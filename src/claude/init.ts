@@ -4,9 +4,8 @@ import { homedir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { installClaudeGlobal, type GlobalWrite } from '../hosts/claude-global.js';
 import { mergeGraftSettings } from './settings-merge.js';
-import { statuslineShim, hooksShim } from './shim-template.js';
+import { statuslineShim, hooksShim, rememberInstall } from './shim-template.js';
 import { skillTemplate } from './skill-template.js';
-import { claudeDistDir } from './paths.js';
 import { mergeJsonKey, serverEntry, type McpWrite } from '../hosts/mcp-config.js';
 import { hasGraftIndex } from '../graph/root.js';
 import type { PlannedWrite } from '../hosts/plan.js';
@@ -96,9 +95,11 @@ export function runInit(
 
   const sl = statusline;
   const hk = hooks;
-  const bakedDir = claudeDistDir(); // absolute <pkg>/dist/claude — the shims' primary resolution path
-  writeFileSync(sl, statuslineShim(bakedDir)); chmodSync(sl, 0o755);
-  writeFileSync(hk, hooksShim(bakedDir)); chmodSync(hk, 0o755);
+  // The shims are committed, so they name nothing about this machine; where the
+  // package lives here goes to the trail home instead, for them to find first.
+  writeFileSync(sl, statuslineShim()); chmodSync(sl, 0o755);
+  writeFileSync(hk, hooksShim()); chmodSync(hk, 0o755);
+  rememberInstall(opts.home ?? homedir());
 
   // Install the graft skill — the piece that redirects the agent to graft/ before it
   // greps source. Overwritten each run (graft owns this file), like the shims above.

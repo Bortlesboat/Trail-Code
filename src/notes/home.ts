@@ -39,8 +39,8 @@ import { readBranchCache } from "./branches.js";
 import { hasRepoTrail, learningFiles } from "./repo-trail.js";
 
 /** `~/.trail`, or `$TRAIL_HOME`. */
-export function trailHome(env: NodeJS.ProcessEnv = process.env): string {
-  return env.TRAIL_HOME ? resolve(env.TRAIL_HOME) : join(homedir(), ".trail");
+export function trailHome(env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
+  return env.TRAIL_HOME ? resolve(env.TRAIL_HOME) : join(home, ".trail");
 }
 
 /** A path as people read it: `~/.trail/…` under the home folder, absolute otherwise. */

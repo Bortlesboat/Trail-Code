@@ -39,8 +39,8 @@ export interface McpTarget extends PlannedWrite {
  * cheap half of the fix, not the whole of it.)
  *
  * Deliberately a bare command name, never an absolute path: these files get
- * committed and shared, and this repo already carries the scar of the alternative —
- * a checked-in hook shim with another machine's home directory baked into it. A
+ * committed and shared, and this repo carried the scar of the alternative — a
+ * checked-in hook shim with another machine's home directory baked into it. A
  * bare `graft` works on any machine that has it installed; `npx` remains the
  * fallback for machines that don't.
  */
