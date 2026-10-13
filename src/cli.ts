@@ -1674,7 +1674,10 @@ async function runInitCommand(
         console.error("· Claude follows them from your next session");
         if (saved.some((s) => s.scope === "repo")) console.error(commitLines({}, teammatesOn(repo), "repo").uncommitted);
       } else if (result.reason === "failed") {
-        console.error(`· couldn't read your past sessions this time; ${cmd("graft init")} again tries again`);
+        // Almost always a `claude` that isn't signed in: it answers, with an error.
+        console.error(`· couldn't read your past sessions: Claude Code didn't answer. Check \`claude\` is signed in, then run ${cmd("graft init")} again`);
+      } else if (result.reason === "no_claude") {
+        console.error(`· didn't read your past sessions: the \`claude\` command isn't on your PATH. Install Claude Code's CLI, then run ${cmd("graft init")} again`);
       }
     }
     if (TRAIL && !learnedNow) {
