@@ -184,3 +184,38 @@ export function graftNotice(input: NoticeInput): string | null {
   if (!trailOnPath(env)) lines.push("· run graft upgrade to get the trail command too");
   return lines.join("\n");
 }
+
+/** The nearest directory at or above `dir` holding a `.git`, or null. */
+function gitRootOf(dir: string): string | null {
+  for (let at = dir; ; at = dirname(at)) {
+    if (existsSync(join(at, ".git"))) return at;
+    if (dirname(at) === at) return null;
+  }
+}
+
+/**
+ * The line a person typing `trail` sees in a repo an older graft wired, while
+ * nothing on this machine can reach that wiring; or null.
+ *
+ * A graft 0.21 or older committed hook shims that look for `@nanonets/graft`
+ * alone, and registered a bare `graft mcp` server. On a machine with trail and
+ * no graft, the hooks run and do nothing and the server never starts, so the
+ * session start that would move the repo to trail never happens. `trail init`
+ * in the repo moves it, and so does a session opened under the hooks
+ * `trail init` writes to `~/.claude`; this says so to someone who has done
+ * neither. Silent once graft is on PATH, since its hooks then move the repo.
+ * Never shown to an agent, a pipe or CI, like {@link graftNotice}.
+ */
+export function strandedRepoNotice(input: { cwd: string; tty: boolean; env?: NodeJS.ProcessEnv }): string | null {
+  const env = input.env ?? process.env;
+  if (brand(env) !== "trail" || !input.tty) return null;
+  if (env.CLAUDECODE !== undefined || env.CI) return null;
+  const repo = gitRootOf(input.cwd);
+  if (!repo || repoWiredForTrail(repo) || commandOnPath("graft", env)) return null;
+  try {
+    if (readFileSync(join(repo, ".claude", "helpers", "graft-hooks.cjs"), "utf8").includes(PACKAGE_FOR.trail)) return null;
+  } catch {
+    return null; // no graft wiring here
+  }
+  return "· this repo's agent hooks were set up by an older graft and can't find trail. run trail init here once to move the repo over";
+}

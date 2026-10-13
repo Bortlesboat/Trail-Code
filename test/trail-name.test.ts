@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { brand, cmd, graftNotice, noticeStampPath, tag } from "../src/brand.js";
+import { brand, cmd, graftNotice, noticeStampPath, strandedRepoNotice, tag } from "../src/brand.js";
 import { track } from "../src/telemetry/track.js";
 import { commandInvokesGraft } from "../src/claude/session-metrics.js";
 import { savingsLine, sumSavingsFooters } from "../src/context/savings.js";
@@ -80,6 +80,49 @@ test("agents, pipes, CI and trail itself never see the notice, and it isn't stam
   assert.equal(graftNotice({ ran: "graft ask", tty: true, env: { TRAIL_INVOKED_AS: "trail" }, home }), null, "trail");
   assert.equal(graftNotice({ ran: "graft ask", tty: true, env: { GRAFT_NO_RENAME_NOTICE: "1" }, home }), null, "opted out");
   assert.equal(existsSync(noticeStampPath(home)), false, "nothing stamped");
+});
+
+// --- a repo whose graft-era hooks can't reach trail ---
+
+/** A repo wired by graft 0.21: a hook shim that looks for @nanonets/graft alone. */
+function graftEraRepo(shim = "require.resolve('@nanonets/graft/package.json')"): string {
+  const repo = mkdtempSync(join(tmpdir(), "graft-era-"));
+  mkdirSync(join(repo, ".git"));
+  mkdirSync(join(repo, ".claude", "helpers"), { recursive: true });
+  writeFileSync(join(repo, ".claude", "helpers", "graft-hooks.cjs"), shim);
+  return repo;
+}
+
+const TRAIL = { TRAIL_INVOKED_AS: "trail", PATH: "" };
+const STRANDED =
+  "· this repo's agent hooks were set up by an older graft and can't find trail. run trail init here once to move the repo over";
+
+test("trail in a graft-era repo, with no graft to answer its hooks, says how to move the repo", () => {
+  const repo = graftEraRepo();
+  assert.equal(strandedRepoNotice({ cwd: repo, tty: true, env: TRAIL }), STRANDED);
+  mkdirSync(join(repo, "src", "deep"), { recursive: true });
+  assert.equal(strandedRepoNotice({ cwd: join(repo, "src", "deep"), tty: true, env: TRAIL }), STRANDED, "from a subfolder too");
+});
+
+test("no stranded line once something can answer the hooks, or the repo already moved", () => {
+  const bin = mkdtempSync(join(tmpdir(), "graft-bin-"));
+  const exe = join(bin, process.platform === "win32" ? "graft.cmd" : "graft");
+  writeFileSync(exe, "");
+  chmodSync(exe, 0o755);
+  assert.equal(strandedRepoNotice({ cwd: graftEraRepo(), tty: true, env: { ...TRAIL, PATH: bin } }), null, "graft installed");
+  assert.equal(strandedRepoNotice({ cwd: graftEraRepo("const PKGS = ['@trailhq/trail', '@nanonets/graft'];"), tty: true, env: TRAIL }), null, "a shim that looks for trail");
+  const moved = graftEraRepo();
+  writeFileSync(join(moved, ".claude", "helpers", "trail-hooks.cjs"), "");
+  assert.equal(strandedRepoNotice({ cwd: moved, tty: true, env: TRAIL }), null, "already on trail");
+  assert.equal(strandedRepoNotice({ cwd: tmpRepo(), tty: true, env: TRAIL }), null, "never wired");
+});
+
+test("agents, pipes, CI and graft itself never see the stranded line", () => {
+  const repo = graftEraRepo();
+  assert.equal(strandedRepoNotice({ cwd: repo, tty: false, env: TRAIL }), null, "no terminal");
+  assert.equal(strandedRepoNotice({ cwd: repo, tty: true, env: { ...TRAIL, CLAUDECODE: "1" } }), null, "Claude Code");
+  assert.equal(strandedRepoNotice({ cwd: repo, tty: true, env: { ...TRAIL, CI: "true" } }), null, "CI");
+  assert.equal(strandedRepoNotice({ cwd: repo, tty: true, env: { PATH: "" } }), null, "graft");
 });
 
 // --- what parses the output ---
