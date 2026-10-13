@@ -33,6 +33,7 @@ import { toPosixPath } from '../util/paths.js';
 import { readJsonObject, writeOwned, type ConfigWrite } from './config-write.js';
 import { mergeJsonKey, serverEntry } from './mcp-config.js';
 import type { PlannedWrite } from './plan.js';
+import type { Brand } from '../brand.js';
 
 /** Same `{ id, path, action }` contract every other writer in this layer reports. */
 export type GlobalWrite = ConfigWrite;
@@ -53,13 +54,13 @@ export function globalHelpersDir(home: string): string {
  * a worktree is its own project entry there, so a local registration would miss it
  * for precisely the same reason the repo file does.
  */
-export function claudeGlobalTargets(home: string): PlannedWrite[] {
+export function claudeGlobalTargets(home: string, brand: Brand = 'graft'): PlannedWrite[] {
   const g = (id: string, path: string, kind: PlannedWrite['kind'], what: string): PlannedWrite =>
     ({ hostId: 'claude', id, path, scope: 'global', kind, what });
   return [
     g('claude-global-shim', join(globalHelpersDir(home), 'graft-hooks.cjs'), 'hook', 'hooks shim (user level)'),
     g('claude-global-hooks', join(home, '.claude', 'settings.json'), 'hook', 'SessionStart / UserPromptSubmit / PostToolUse / Stop'),
-    g('claude-global-mcp', join(home, '.claude.json'), 'mcp', 'mcpServers.graft'),
+    g('claude-global-mcp', join(home, '.claude.json'), 'mcp', `mcpServers.${brand}`),
   ];
 }
 
@@ -89,8 +90,8 @@ function upsertGlobalHooks(id: string, path: string, helpers: string): GlobalWri
  * Best-effort by contract, like every other writer here: a failure is reported as an
  * action, never raised, so a bad `~/.claude.json` can't fail a `graft init`.
  */
-export function installClaudeGlobal(home: string): GlobalWrite[] {
-  const [shim, settings, mcp] = claudeGlobalTargets(home);
+export function installClaudeGlobal(home: string, brand: Brand = 'graft'): GlobalWrite[] {
+  const [shim, settings, mcp] = claudeGlobalTargets(home, brand);
   const out: GlobalWrite[] = [];
 
   try {
@@ -114,8 +115,10 @@ export function installClaudeGlobal(home: string): GlobalWrite[] {
     }
   }
 
+  // Under trail the server is `trail`, and it replaces a `graft` one: it's the
+  // same server renamed, and Claude would otherwise list both in every project.
   try {
-    out.push(mergeJsonKey(mcp.id, mcp.path, 'mcpServers', serverEntry()));
+    out.push(mergeJsonKey(mcp.id, mcp.path, 'mcpServers', serverEntry({ brand }), brand, brand === 'trail' ? ['graft'] : []));
   } catch {
     out.push({ id: mcp.id, path: mcp.path, action: 'skipped-unparseable' });
   }

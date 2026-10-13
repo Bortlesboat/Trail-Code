@@ -75,7 +75,7 @@ export function planInit(repo: string, opts: { home?: string; ids?: string[] } =
     // Repo writes plus the user-level copy under `~/.claude` — the picker and
     // `--dry-run` render 'global' writes in their own section, so a user sees
     // what lands outside the repo before agreeing to it.
-    { id: 'claude', name: 'Claude Code', detected: true, writes: [...claudeTargets(repo, brand()), ...claudeGlobalTargets(home)] },
+    { id: 'claude', name: 'Claude Code', detected: true, writes: [...claudeTargets(repo, brand()), ...claudeGlobalTargets(home, brand())] },
     ...HOSTS.map((host) => ({
       id: host.id,
       name: host.name,
