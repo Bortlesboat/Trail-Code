@@ -115,13 +115,48 @@ export function installClaudeGlobal(home: string, brand: Brand = 'graft'): Globa
     }
   }
 
-  // Under trail the server is `trail`, and it replaces a `graft` one: it's the
-  // same server renamed, and Claude would otherwise list both in every project.
+  // Under trail the server is `trail`, unless graft's is already registered
+  // here: that one keeps serving every repo still wired as graft, and a trail
+  // repo turns it off for its own folder instead (see disableGraftServerIn).
   try {
-    out.push(mergeJsonKey(mcp.id, mcp.path, 'mcpServers', serverEntry({ brand }), brand, brand === 'trail' ? ['graft'] : []));
+    const loaded = readJsonObject(mcp.path);
+    const hasGraft = loaded !== 'unparseable' && Boolean(loaded.root.mcpServers?.graft);
+    out.push(
+      brand === 'trail' && hasGraft
+        ? { id: mcp.id, path: mcp.path, action: 'unchanged' }
+        : mergeJsonKey(mcp.id, mcp.path, 'mcpServers', serverEntry({ brand }), brand),
+    );
   } catch {
     out.push({ id: mcp.id, path: mcp.path, action: 'skipped-unparseable' });
   }
 
   return out;
+}
+
+/**
+ * In a repo wired for trail, Claude Code would list graft's user-level server
+ * beside the repo's own `trail` one: the same tools twice. Claude Code keeps a
+ * per-folder switch for that, `projects["<folder>"].disabledMcpServers` in
+ * `~/.claude.json` (what /mcp sets), so graft goes off for this folder only
+ * and keeps serving every repo still wired as graft. Nothing to do when graft
+ * has no user-level server. Best-effort, like every writer here.
+ */
+export function disableGraftServerIn(home: string, folder: string): GlobalWrite {
+  const id = 'claude-folder-graft-off';
+  const path = join(home, '.claude.json');
+  try {
+    const loaded = readJsonObject(path);
+    if (loaded === 'unparseable') return { id, path, action: 'skipped-unparseable' };
+    const root = loaded.root;
+    if (!root.mcpServers?.graft) return { id, path, action: 'unchanged' };
+    const projects = (root.projects ??= {}) as Record<string, { disabledMcpServers?: unknown }>;
+    const here = (projects[folder] ??= {});
+    const off = Array.isArray(here.disabledMcpServers) ? (here.disabledMcpServers as string[]) : [];
+    if (off.includes('graft')) return { id, path, action: 'unchanged' };
+    here.disabledMcpServers = [...off, 'graft'];
+    writeFileSync(path, `${JSON.stringify(root, null, 2)}\n`);
+    return { id, path, action: 'updated' };
+  } catch {
+    return { id, path, action: 'skipped-unparseable' };
+  }
 }

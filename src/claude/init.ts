@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { installClaudeGlobal, type GlobalWrite } from '../hosts/claude-global.js';
+import { disableGraftServerIn, installClaudeGlobal, type GlobalWrite } from '../hosts/claude-global.js';
 import { mergeGraftSettings } from './settings-merge.js';
 import { statuslineShim, hooksShim, rememberInstall } from './shim-template.js';
 import { skillTemplate } from './skill-template.js';
@@ -127,6 +127,9 @@ export function runInit(
   // flag `registerMcpConfigs` uses, so `--no-global` still means "nothing outside
   // this repo".
   const global = opts.global === false ? [] : installClaudeGlobal(opts.home ?? homedir(), name);
+  // A trail repo on a machine with graft's server installed for everything:
+  // graft goes off in this folder, so Claude lists one server here.
+  if (name === 'trail' && opts.global !== false) global.push(disableGraftServerIn(opts.home ?? homedir(), resolve(dir)));
 
   const built = buildGraphIfMissing(dir, opts);
   return { settingsPath, shims: [sl, hk], skill: skillPath, mcp, global, warnings, built };
