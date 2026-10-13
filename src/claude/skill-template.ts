@@ -102,7 +102,10 @@ A learning is for the team or just for the user:
 - Just for the user, with \`--personal\`: how this person likes to work, or
   their own machine and setup. It stays on their machine, out of the repo.
 
-\`trail note\` prints the line to close your reply with; use it as given.
+\`trail note\` prints the line to close your reply with. For a team learning
+it prints two: one for when the learning is committed by the end of your
+turn, one for when it isn't. Check with \`git status --porcelain
+.trail/learnings\` before you close, and use the one that's true.
 
 Never edit a learning once it's written, yours or a teammate's: it's the
 record of what that session knew. When a change goes against one on purpose,

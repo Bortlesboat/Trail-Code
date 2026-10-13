@@ -67,3 +67,23 @@ test("counted when committed learnings go up, not when they stay the same", () =
   assert.ok(sent()[1]!.properties.added_bucket);
   assert.ok(sent()[1]!.properties.total_bucket);
 });
+
+test("uncommitted team learnings are mentioned once a day, naming who'd get them", async () => {
+  const { uncommittedDirective } = await import("../src/claude/hooks.js");
+  const d = tmpRepo("uncommitted");
+  git(d, ["init", "-q", "-b", "main"]);
+  writeFileSync(join(d, "a.go"), "package a\n");
+  git(d, ["add", "."]);
+  spawnSync("git", ["-c", "commit.gpgsign=false", "-c", "user.name=Anay Shah", "-c", "user.email=anay@acme.test", "commit", "-qm", "a"], { cwd: d });
+  spawnSync("git", ["config", "user.name", "Priya"], { cwd: d });
+  spawnSync("git", ["config", "user.email", "p@acme.test"], { cwd: d });
+  assert.equal(uncommittedDirective(d), "", "nothing waiting");
+
+  mkdirSync(join(d, ".trail", "learnings"), { recursive: true });
+  writeFileSync(join(d, ".trail", "learnings", "x.md"), "---\ntitle: x\n---\n");
+  const said = uncommittedDirective(d);
+  assert.match(said, /1 team learning in \.trail\/learnings\/ isn't committed yet/);
+  assert.match(said, /🌱 Anay works in this repo\. Commit what you learned and give their agents a head start$/m);
+  assert.equal(uncommittedDirective(d), "", "once a day");
+  assert.notEqual(uncommittedDirective(d, Date.now() + 25 * 3600_000), "", "and again the next day while it's still waiting");
+});

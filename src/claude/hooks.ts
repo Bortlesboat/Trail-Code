@@ -4,7 +4,8 @@ import { join, basename, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { readWiring } from './stats.js';
 import { formatBlastRadius, relevantRetrieval, formatOrientation, notesForPrompt, overlapsForPrompt, standingDirective } from './format.js';
-import { standingLearnings } from '../notes/notes.js';
+import { commitLines, standingLearnings } from '../notes/notes.js';
+import { teammatesOn } from '../notes/git-facts.js';
 import { indexFreshness, staleBanner } from '../context/check.js';
 import { patchStats, readStats, acquireLock, readSession, writeSession, resolveContextDir } from './state.js';
 import { graftCliPath, claudeScriptPath } from './paths.js';
@@ -583,6 +584,32 @@ export function trackLearningsCommitted(dir: string): void {
   }
 }
 
+/**
+ * Team learnings sitting uncommitted in `.trail/learnings/` (from trail init's
+ * read of past sessions, or a session that ended before committing) reach no
+ * teammate. Once a day per repo, the first reply says so, with the line that
+ * makes the case for committing them. Empty when everything is committed.
+ */
+export function uncommittedDirective(dir: string, now = Date.now()): string {
+  try {
+    const place = repoPlace(dir);
+    if (!place.git) return '';
+    const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=all', '--', '.trail/learnings'], {
+      cwd: place.checkout, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000,
+    });
+    const n = status.split('\n').filter((l) => l.trimEnd().endsWith('.md')).length;
+    if (!n) return '';
+    const mark = join(cacheDir(place.checkout), 'trail-uncommitted-said.json');
+    if (now - (readJson<{ at?: number }>(mark)?.at ?? 0) < DAY_MS) return '';
+    writeJsonAtomic(mark, { at: now }, true);
+    const line = commitLines({}, teammatesOn(place.checkout), 'repo').uncommitted;
+    const them = n === 1 ? "learning in .trail/learnings/ isn't committed yet, so no teammate's agent has it" : `learnings in .trail/learnings/ aren't committed yet, so no teammate's agent has them`;
+    return `${tag()} ${n} team ${them}. Say so once, at the end of your first reply, with this line, word for word: ${line}\n`;
+  } catch {
+    return '';
+  }
+}
+
 /** The most the session-start hook waits on `git fetch` for teammates' branches. */
 export const BRANCH_FETCH_CAP_MS = 3000;
 
@@ -636,7 +663,8 @@ export async function main(event: string): Promise<void> {
       const banner = staleBanner(indexFreshness(dir)) ?? undefined;
       const kept = keepsNotes(dir);
       const skills = kept ? skillsDirective(dir, cmd('graft skills show')) : '';
-      const standing = kept && brand() === 'trail' ? standingDirective(standingLearnings(dir)) : '';
+      const underTrail = kept && brand() === 'trail';
+      const standing = underTrail ? standingDirective(standingLearnings(dir)) + uncommittedDirective(dir) : '';
       const orientation = formatOrientation(idx, undefined, banner, noteCount(dir), kept, skills + standing);
       emit('SessionStart', upkeep.length ? `${upkeep.join('\n')}\n\n${orientation}` : orientation);
     } catch {

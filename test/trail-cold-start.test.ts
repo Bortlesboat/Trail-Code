@@ -11,7 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { digest, ownWords, readSession, scrub, sessionFiles, verify, type PastSession } from "../src/notes/cold-start.js";
 import { standingDirective } from "../src/claude/format.js";
-import { parseNote, savedLine, standingLearnings } from "../src/notes/notes.js";
+import { commitLines, namesLabel, parseNote, PERSONAL_SAVED_LINE, standingLearnings } from "../src/notes/notes.js";
+import { teammatesOn } from "../src/notes/git-facts.js";
 import { claudeProjectDir } from "../src/notes/session-cost.js";
 import { tmpRepo } from "./helpers.js";
 
@@ -123,13 +124,38 @@ test("anything like a credential or an email is scrubbed before a learning is wr
   assert.ok(!out.includes("AKIA"));
 });
 
-test("the closing line says who a learning is for, and what it took when trail knows", () => {
-  assert.equal(savedLine({ scope: "personal" }), "📝 Saved just for you · stays on this machine, out of the repo");
-  assert.equal(
-    savedLine({ scope: "repo", cost: { minutes: 6, tokens: 41000 } }),
-    "📝 Saved for your team · took 6 min and ~41k tokens to work out · commit it and your teammates' Claude skips that",
-  );
-  assert.equal(savedLine({ scope: "repo" }), "📝 Saved for your team · commit it and your teammates' Claude starts from it");
+test("the closing lines name who works there and the head start, committed or not", () => {
+  assert.equal(PERSONAL_SAVED_LINE, "📝 Saved just for you · stays on this machine, out of the repo");
+  const five = commitLines({ cost: { tokens: 48000 } }, ["Anay", "Rushil", "Ritika", "Rohan", "Kumar"]);
+  assert.equal(five.uncommitted, "🌱 Anay, Rushil and 3 others work in this part of the codebase. Commit what you learned and give their agents a 48k-token head start");
+  assert.equal(five.committed, "📝 Committed · Anay, Rushil and 3 others work in this part of the codebase, and their agents now get a 48k-token head start");
+  assert.equal(commitLines({}, [], "repo").uncommitted, "🌱 Commit what you learned and give your teammates' agents a head start");
+  assert.equal(commitLines({}, ["Anay"], "repo").uncommitted, "🌱 Anay works in this repo. Commit what you learned and give their agents a head start");
+  assert.equal(namesLabel(["Anay", "Rushil", "Ritika"]), "Anay, Rushil and Ritika");
+});
+
+test("teammates are the recent authors of the files, most commits first, never you or a bot", () => {
+  const d = tmpRepo("teammates");
+  const g = (...args: string[]) => spawnSync("git", ["-c", "commit.gpgsign=false", ...args], { cwd: d });
+  g("init", "-q");
+  g("config", "user.name", "Priya Raman");
+  g("config", "user.email", "priya@acme.test");
+  const commit = (who: string, email: string, file: string, n: number) => {
+    for (let i = 0; i < n; i++) {
+      writeFileSync(join(d, file), `${who} ${i}\n`);
+      g("add", file);
+      g("-c", `user.name=${who}`, "-c", `user.email=${email}`, "commit", "-qm", `${who} ${i}`);
+    }
+  };
+  commit("Priya Raman", "priya@acme.test", "a.go", 3);
+  commit("Rushil Jain", "rushil@acme.test", "a.go", 1);
+  commit("Anay Shah", "anay@acme.test", "a.go", 2);
+  commit("dependabot[bot]", "49699333+dependabot[bot]@users.noreply.github.com", "a.go", 4);
+  commit("Kumar", "kumar@acme.test", "b.go", 1);
+  assert.deepEqual(teammatesOn(d, ["a.go"]), ["Anay", "Rushil"]);
+  const all = teammatesOn(d);
+  assert.equal(all[0], "Anay", "most commits first");
+  assert.deepEqual([...all].sort(), ["Anay", "Kumar", "Rushil"], "the whole repo when no files are named");
 });
 
 /* ---- trail init, end to end, with a stand-in for Claude Code on PATH ---- */
@@ -213,6 +239,7 @@ test("trail init reads past sessions by itself and saves what came up twice, onc
   assert.match(first.err, /✓ learned 2 things you told Claude more than once, from your last 2 sessions here/);
   assert.match(first.err, /for your team · Run go test with -race before pushing/);
   assert.match(first.err, /just for you  · Say what you understood before building/);
+  assert.match(first.err, /· Claude follows them from your next session\n🌱 Commit what you learned and give your teammates' agents a head start/);
 
   const [file] = readdirSync(join(repo, ".trail", "learnings")).filter((f) => f.endsWith(".md"));
   const team = parseNote(readFileSync(join(repo, ".trail", "learnings", file!), "utf8"), file!)!;

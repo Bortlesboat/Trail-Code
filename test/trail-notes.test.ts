@@ -260,17 +260,23 @@ test("trail note saves a learning in .trail/learnings/ to commit, ask shows it t
   // Init's files go in with the setup commit, as they would for a real team.
   spawnSync("git", ["add", "-A"], { cwd: d });
   spawnSync("git", ["-c", "commit.gpgsign=false", "commit", "-qm", "wire trail"], { cwd: d });
+  // A teammate worked on the same file: the case for committing names them.
+  writeFileSync(join(d, "internal", "ocr", "bbox.go"), "package ocr\n\nfunc NormalizeBox(x float64, rotate int) float64 {\n\treturn x * 1\n}\n");
+  spawnSync("git", ["-c", "commit.gpgsign=false", "-c", "user.name=Anay Shah", "-c", "user.email=anay@acme.test", "commit", "-qam", "scale"], { cwd: d });
   writeFileSync(join(d, "internal", "ocr", "bbox.go"), "package ocr\n\nfunc NormalizeBox(x float64, rotate int) float64 {\n\treturn -x\n}\n");
 
   const saved = run("trail", ["note", d, "--title", "Bbox coordinates are off on rotated PDFs", "--minutes", "12", "--tokens", "9600"], home, BODY);
   assert.equal(saved.status, 0, saved.err);
   assert.match(saved.out, /^✓ saved for your team · \.trail\/learnings\/\d{4}-\d{2}-\d{2}-bbox-coordinates-are-off-on-rotated-priya\.md$/m);
   assert.match(saved.out, /this took 12 min and ~9\.6k tokens to figure out\. the next session that touches bbox\.go gets it for ~\d+/);
-  assert.match(saved.out, /^· commit it with this change \(git add \.trail\/learnings\/[^)]+\) so your team's Claude starts from it too$/m);
   assert.match(
     saved.out,
-    /\[trail\] Close your reply with this line, word for word: 📝 Saved for your team · took 12 min and ~9\.6k tokens to work out · commit it and your teammates' Claude skips that$/m,
-    "the closing line, for the agent's reply",
+    /^🌱 Anay works in this part of the codebase\. Commit what you learned and give their agents a 9\.6k-token head start · git add \.trail\/learnings\/\S+\.md$/m,
+  );
+  assert.match(
+    saved.out,
+    /\[trail\] Close your reply with one line, word for word\. If this learning is committed by the end of your turn: 📝 Committed · Anay works in this part of the codebase, and their agents now get a 9\.6k-token head start\n  If it isn't: 🌱 Anay works in this part of the codebase\. Commit what you learned and give their agents a 9\.6k-token head start$/m,
+    "the closing lines, for the agent's reply",
   );
   const [file] = readdirSync(join(d, ".trail", "learnings")).filter((f) => f.endsWith(".md"));
   const written = parseNote(readFileSync(join(d, ".trail", "learnings", file!), "utf8"), "x");

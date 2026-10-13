@@ -93,10 +93,10 @@ import { patchBuildConfig, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
 import { latestSession, formatSessionStats, sessionInputRate } from "./claude/session-metrics.js";
 import { listSessionIds, readSession, sessionDir } from "./claude/state.js";
-import { costLabel, listNotes, noteName, notePlace, noteTargets, readingTokens, savedByNote, savedLine, SECTIONS, sectionLead, shortDate, tokensLabel, writeNote, type Note, mentionedFiles } from "./notes/notes.js";
+import { costLabel, listNotes, noteName, notePlace, noteTargets, readingTokens, savedByNote, commitLines, PERSONAL_SAVED_LINE, SECTIONS, sectionLead, shortDate, tokensLabel, writeNote, type Note, mentionedFiles } from "./notes/notes.js";
 import { currentSessionCost } from "./notes/session-cost.js";
 import { beginPastRead, finishPastRead } from "./notes/cold-start.js";
-import { currentBranch, noteAuthor } from "./notes/git-facts.js";
+import { currentBranch, noteAuthor, teammatesOn } from "./notes/git-facts.js";
 import { confirm, fold, getSkill, learn, listSkills, publish, skillForAgent, skillName, skillStatus, type LearnResult } from "./skills/skills.js";
 import { clearPending, cloudLines, loginLink, sessionKey, waitForConnect } from "./cloud/nudge.js";
 import { addRepo, clearCloud, cloudEnabled, fetchMe, fetchTeam, isError, readCloud, writeCloud, type Cloud } from "./cloud/workspace.js";
@@ -1408,12 +1408,18 @@ async function runNoteCommand(repo: string, opts: NoteOptions): Promise<void> {
     console.log("· tip: learnings read best under ## Decided, ## Tried and ruled out and ## Watch out");
   const repoSaved = saved.filter((n) => n.scope === "repo");
   if (repoSaved.length) {
-    const paths = repoSaved.map(notePlace).join(" ");
-    console.log(`· commit it with this change (git add ${paths}) so your team's Claude starts from it too`);
+    // Who else works on these files, for the case for committing it.
+    const lines = commitLines(note, teammatesOn(repo, [...files].filter((f): f is string => !!f)));
+    console.log(`${lines.uncommitted} · git add ${repoSaved.map(notePlace).join(" ")}`);
+    if (!process.stdout.isTTY && TRAIL)
+      console.log(
+        `[trail] Close your reply with one line, word for word. If this learning is committed by the end of your turn: ${lines.committed}\n` +
+          `  If it isn't: ${lines.uncommitted}`,
+      );
   } else {
     console.log("· just for you: kept on this machine, out of the repo");
+    if (!process.stdout.isTTY && TRAIL) console.log(`[trail] Close your reply with this line, word for word: ${PERSONAL_SAVED_LINE}`);
   }
-  if (!process.stdout.isTTY && TRAIL) console.log(`[trail] Close your reply with this line, word for word: ${savedLine(note)}`);
   for (const t of targets) {
     rememberRepo(t.dir);
     maybeSyncInBackground(t.dir);
@@ -1633,10 +1639,8 @@ async function runInitCommand(
         const n = saved.length;
         console.error(`✓ learned ${n} thing${n === 1 ? "" : "s"} you told Claude more than once, from your last ${result.read} sessions here`);
         for (const note of saved) console.error(`    ${note.scope === "personal" ? "just for you " : "for your team"} · ${note.title}`);
-        const team = saved.filter((s) => s.scope === "repo").length;
-        console.error(
-          `· Claude follows them from your next session${team ? `; commit ${LEARNINGS_DIR}/ and your teammates' Claude follows the team ones too` : ""}`,
-        );
+        console.error("· Claude follows them from your next session");
+        if (saved.some((s) => s.scope === "repo")) console.error(commitLines({}, teammatesOn(repo), "repo").uncommitted);
       } else if (result.reason === "failed") {
         console.error(`· couldn't read your past sessions this time; ${cmd("graft init")} again tries again`);
       }

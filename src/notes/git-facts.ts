@@ -66,3 +66,47 @@ export function changedFiles(repo: string, since?: number, limit = 10): string[]
   }
   return out.slice(0, limit);
 }
+
+/** How far back "works in this part of the codebase" looks. */
+const TEAMMATE_DAYS = 180;
+
+/**
+ * The people who changed `files` (the whole repo when empty) in the last six
+ * months, by first name, most commits first: the ones whose agents a learning
+ * about those files would help. Never the person asking, and never a bot.
+ */
+export function teammatesOn(repo: string, files: string[] = []): string[] {
+  const me = (git(repo, ["config", "user.email"]) ?? "").toLowerCase();
+  const myName = (git(repo, ["config", "user.name"]) ?? "").toLowerCase();
+  const out = git(repo, ["log", `--since=${TEAMMATE_DAYS}.days`, "--max-count=5000", "--format=%aN%x09%aE", "--", ...files]);
+  if (!out) return [];
+  const commits = new Map<string, { name: string; email: string; n: number }>();
+  for (const line of out.split("\n")) {
+    const [name = "", email = ""] = line.split("\t");
+    const key = email.toLowerCase() || name.toLowerCase();
+    if (!name || key === me || name.toLowerCase() === myName) continue;
+    if (/\[bot\]|^(dependabot|github-actions|renovate)\b/i.test(name)) continue;
+    const seen = commits.get(key);
+    if (seen) seen.n++;
+    else commits.set(key, { name, email, n: 1 });
+  }
+  const names: string[] = [];
+  for (const { name, email } of [...commits.values()].sort((a, b) => b.n - a.n)) {
+    const shown = firstName(name, email);
+    if (shown && !names.includes(shown)) names.push(shown);
+  }
+  return names;
+}
+
+/**
+ * A first name to show for a git author. Many commit under a handle
+ * (`anaynanonets`), so when the name has no space a work email's local part
+ * (`anay@…`) reads better; a noreply address has nothing to offer.
+ */
+function firstName(name: string, email: string): string {
+  const n = name.trim();
+  let word = /\s/.test(n) ? n.split(/\s+/)[0]! : "";
+  if (!word && email && !/noreply/i.test(email)) word = email.split("@")[0]!.split(/[._+\-\d]+/)[0] ?? "";
+  if (!word) word = n.split(/[._\-\d]+/)[0] ?? "";
+  return word ? word[0]!.toUpperCase() + word.slice(1) : "";
+}

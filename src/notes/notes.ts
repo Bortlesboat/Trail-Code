@@ -499,16 +499,47 @@ export function formatNoteHits(hits: NoteHit[]): string[] {
   return lines;
 }
 
+/** The line an agent closes its reply with after saving a learning just for the user. */
+export const PERSONAL_SAVED_LINE = "📝 Saved just for you · stays on this machine, out of the repo";
+
+/** `Anay`, `Anay and Rushil`, `Anay, Rushil and 3 others`. */
+export function namesLabel(names: string[]): string {
+  if (names.length <= 2) return names.join(" and ");
+  if (names.length === 3) return `${names[0]}, ${names[1]} and ${names[2]}`;
+  return `${names[0]}, ${names[1]} and ${names.length - 2} others`;
+}
+
+/** `48k`, `3.8k`, `600`. */
+function tokensShort(n: number): string {
+  return tokensLabel(n).replace(/^~/, "").replace(" tokens", "");
+}
+
 /**
- * The line an agent closes its reply with after saving a learning: who it's
- * for, what it took to work out, and for a team one, what committing it does.
+ * The lines that close a reply after a team learning is saved, one for each
+ * way the turn can end, since only the agent knows whether it committed the
+ * learning by then. Uncommitted, it makes the case for committing: who else
+ * works on the same files, and the head start their agents would get, which
+ * is what the learning took to work out.
  */
-export function savedLine(note: Pick<Note, "scope" | "cost">): string {
-  if (note.scope === "personal") return "📝 Saved just for you · stays on this machine, out of the repo";
-  const took = costLabel(note.cost);
-  return took
-    ? `📝 Saved for your team · ${took} · commit it and your teammates' Claude skips that`
-    : "📝 Saved for your team · commit it and your teammates' Claude starts from it";
+export function commitLines(
+  note: Pick<Note, "cost">,
+  teammates: string[],
+  where: "files" | "repo" = "files",
+): { committed: string; uncommitted: string } {
+  const start = note.cost?.tokens ? `a ${tokensShort(note.cost.tokens)}-token head start` : "a head start";
+  const place = where === "files" ? "this part of the codebase" : "this repo";
+  if (!teammates.length) {
+    return {
+      committed: `📝 Committed · your teammates' agents now get ${start}`,
+      uncommitted: `🌱 Commit what you learned and give your teammates' agents ${start}`,
+    };
+  }
+  const who = namesLabel(teammates);
+  const work = teammates.length === 1 ? "works" : "work";
+  return {
+    committed: `📝 Committed · ${who} ${work} in ${place}, and their agents now get ${start}`,
+    uncommitted: `🌱 ${who} ${work} in ${place}. Commit what you learned and give their agents ${start}`,
+  };
 }
 
 /**
