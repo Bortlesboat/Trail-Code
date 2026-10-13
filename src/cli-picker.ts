@@ -6,7 +6,7 @@
  */
 import { relative, dirname, sep } from 'node:path';
 import type { HostPlan, PlannedWrite } from './hosts/plan.js';
-import { brand } from './brand.js';
+import { brand, cmd } from './brand.js';
 
 const indigo = (s: string) => `\x1b[38;2;84;111;255m${s}\x1b[0m`;
 const muted = (s: string) => `\x1b[38;5;244m${s}\x1b[0m`;
@@ -411,19 +411,19 @@ export function formatNonInteractiveHelp(detectedIds: string[]): string {
   const examples: [string, string][] = [
     ...(detectedIds.length > 0
       ? ([
-          [`graft init --agents ${detectedIds.join(" ")}`, "wire these"],
-          ["graft init --yes", "same, without spelling them out"],
+          [`${cmd("graft init")} --agents ${detectedIds.join(" ")}`, "wire these"],
+          [`${cmd("graft init")} --yes`, "same, without spelling them out"],
         ] as [string, string][])
       : []),
-    ["graft init --agents claude", "Claude Code only"],
-    ["graft init --dry-run", "list every file first"],
+    [`${cmd("graft init")} --agents claude`, "Claude Code only"],
+    [`${cmd("graft init")} --dry-run`, "list every file first"],
   ];
-  const width = Math.max(...examples.map(([cmd]) => cmd.length));
+  const width = Math.max(...examples.map(([c]) => c.length));
   return [
-    "graft init: no TTY to prompt on, and no --agents/--yes given — nothing written.",
+    `${cmd("graft init")}: no TTY to prompt on, and no --agents/--yes given — nothing written.`,
     `detected: ${list}`,
     "",
-    ...examples.map(([cmd, note]) => `  ${cmd.padEnd(width)}   # ${note}`),
+    ...examples.map(([c, note]) => `  ${c.padEnd(width)}   # ${note}`),
   ].join("\n");
 }
 

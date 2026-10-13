@@ -261,6 +261,20 @@ test('formatNonInteractiveHelp still helps when nothing was detected', () => {
   assert.match(text, /--agents claude/);
 });
 
+test('formatNonInteractiveHelp names the command the way it was run', () => {
+  const was = process.env.TRAIL_INVOKED_AS;
+  process.env.TRAIL_INVOKED_AS = 'trail';
+  try {
+    const text = formatNonInteractiveHelp(['claude']);
+    assert.match(text, /^trail init: no TTY/);
+    assert.match(text, /trail init --agents claude {3}# wire these/);
+    assert.doesNotMatch(text, /graft/);
+  } finally {
+    if (was === undefined) delete process.env.TRAIL_INVOKED_AS;
+    else process.env.TRAIL_INVOKED_AS = was;
+  }
+});
+
 // --- the telemetry consent row ---
 
 /** Same driver, but with the consent row offered. */
