@@ -15,6 +15,12 @@ import { spawn, spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, resolve, sep } from "node:path";
+import { countBucket, durationBucket } from "../telemetry/contract.js";
+import { track } from "../telemetry/track.js";
+import { readJson, writeJsonAtomic } from "../util/state.js";
+import { noteAuthor } from "./git-facts.js";
+import { ensureRepoHome } from "./home.js";
+import { mentionedFiles, shortDate, writeNote, type Note } from "./notes.js";
 import { claudeProjectDir } from "./session-cost.js";
 
 /** One message the person wrote, with the end of what Claude said just before it. */
@@ -48,6 +54,8 @@ export interface Finding {
 export interface FindResult {
   /** Past sessions with at least one message of the person's. */
   sessions: number;
+  /** How many of them, newest first, Claude read. */
+  read: number;
   findings: Finding[];
   model: string;
   durationMs: number;
@@ -56,7 +64,8 @@ export interface FindResult {
   reason?: "no_sessions" | "no_claude" | "failed" | "none_found";
 }
 
-export const COLD_START_MODEL = "claude-haiku-5-5";
+/** Sonnet: on assign's history it merged related corrections into fewer, stronger findings than Haiku. */
+export const COLD_START_MODEL = "claude-sonnet-5-5";
 /** About 80k tokens of messages: every session assign has, and newest first past that. */
 const DIGEST_CHARS = 320_000;
 const PROMPT_CHARS = 1200;
@@ -445,15 +454,16 @@ export function scrub(text: string): string {
  */
 export async function findLearnings(
   repo: string,
-  opts: { model?: string; timeoutMs?: number; home?: string; limit?: number } = {},
+  opts: { model?: string; timeoutMs?: number; home?: string; limit?: number; sessions?: PastSession[] } = {},
 ): Promise<FindResult> {
   const model = opts.model ?? COLD_START_MODEL;
   const started = Date.now();
-  const sessions = pastSessions(repo, opts.home);
-  const base = { sessions: sessions.length, model, findings: [] as Finding[] };
+  const sessions = opts.sessions ?? pastSessions(repo, opts.home);
+  const base = { sessions: sessions.length, read: 0, model, findings: [] as Finding[] };
   if (sessions.length < 2) return { ...base, durationMs: Date.now() - started, reason: "no_sessions" };
   if (!hasClaude()) return { ...base, durationMs: Date.now() - started, reason: "no_claude" };
   const { text, ids } = digest(sessions);
+  base.read = ids.size;
   const asked = await askClaude(
     `Past sessions in this repository, newest first. Find what the person had to tell the agent more than once.\n\n${text}`,
     model,
@@ -465,3 +475,81 @@ export async function findLearnings(
   return { ...base, findings, durationMs, costUsd: asked.costUsd, reason: findings.length ? undefined : "none_found" };
 }
 
+/* -------------------------------------------------------------------------- */
+/* At trail init                                                              */
+/* -------------------------------------------------------------------------- */
+
+/** Where a repo remembers that its past sessions were read, on this machine. */
+function readMark(repo: string): string {
+  return join(ensureRepoHome(repo).place.dir, "past-sessions.json");
+}
+
+export interface PastRead {
+  sessions: number;
+  started: number;
+  result: Promise<FindResult>;
+  done: boolean;
+}
+
+/**
+ * Start reading the repo's past Claude sessions, once per repo per machine,
+ * for `trail init` to collect at its end; null when there's nothing to read,
+ * it was read before, or TRAIL_NO_FETCH is set.
+ */
+export function beginPastRead(repo: string, env: NodeJS.ProcessEnv = process.env): PastRead | null {
+  try {
+    if (env.TRAIL_NO_FETCH === "1" || readJson<{ at?: number }>(readMark(repo))?.at) return null;
+    const sessions = pastSessions(repo);
+    if (sessions.length < 2) {
+      track("cold_start", { outcome: "no_sessions", sessions_bucket: countBucket(sessions.length) }, { repo });
+      return null;
+    }
+    const read: PastRead = { sessions: sessions.length, started: Date.now(), done: false, result: findLearnings(repo, { sessions }) };
+    void read.result.then(() => (read.done = true));
+    return read;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Each finding as a standing learning: the team's in `.trail/learnings/`,
+ * the person's own in ~/.trail. The body says where it came from.
+ */
+export function saveFindings(repo: string, findings: Finding[], author = noteAuthor(repo), date = new Date().toISOString().slice(0, 10)): Note[] {
+  return findings.map((f) =>
+    writeNote(
+      repo,
+      {
+        title: f.title,
+        author,
+        date,
+        body: `${f.body.trim()}\n\n_Told to Claude in ${f.sessions.length} past sessions here, most recently on ${shortDate(f.last)}._`,
+        touches: mentionedFiles(repo, f.body),
+        standing: true,
+      },
+      f.for === "you" ? "personal" : "repo",
+    ),
+  );
+}
+
+/** Wait for the read, save what it found, and remember the repo was read. */
+export async function finishPastRead(repo: string, read: PastRead): Promise<{ result: FindResult; saved: Note[] }> {
+  const result = await read.result;
+  const saved = result.findings.length ? saveFindings(repo, result.findings) : [];
+  const outcome = saved.length ? "found" : (result.reason ?? "none_found");
+  if (outcome === "found" || outcome === "none_found") writeJsonAtomic(readMark(repo), { at: Date.now(), model: result.model, saved: saved.length }, true);
+  track(
+    "cold_start",
+    {
+      outcome,
+      sessions_bucket: countBucket(result.sessions),
+      offered_bucket: countBucket(result.findings.length),
+      picked_bucket: countBucket(saved.length),
+      duration_bucket: durationBucket(result.durationMs),
+      model: result.model,
+    },
+    { repo },
+  );
+  return { result, saved };
+}

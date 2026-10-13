@@ -95,6 +95,7 @@ import { latestSession, formatSessionStats, sessionInputRate } from "./claude/se
 import { listSessionIds, readSession, sessionDir } from "./claude/state.js";
 import { costLabel, listNotes, noteName, notePlace, noteTargets, readingTokens, savedByNote, savedLine, SECTIONS, sectionLead, shortDate, tokensLabel, writeNote, type Note, mentionedFiles } from "./notes/notes.js";
 import { currentSessionCost } from "./notes/session-cost.js";
+import { beginPastRead, finishPastRead } from "./notes/cold-start.js";
 import { currentBranch, noteAuthor } from "./notes/git-facts.js";
 import { confirm, fold, getSkill, learn, listSkills, publish, skillForAgent, skillName, skillStatus, type LearnResult } from "./skills/skills.js";
 import { clearPending, cloudLines, loginLink, sessionKey, waitForConnect } from "./cloud/nudge.js";
@@ -1546,6 +1547,12 @@ async function runInitCommand(
     const wantClaude = ids.includes("claude");
     const cliPath = fileURLToPath(import.meta.url);
 
+    // Under trail, with Claude Code picked: what the person kept telling Claude
+    // in this repo's past sessions, read while the rest of init runs and saved
+    // as learnings at the end. Once per repo, and never asked about first.
+    const pastRead = TRAIL && wantClaude ? beginPastRead(repo) : null;
+    if (pastRead) console.error(`· reading your ${pastRead.sessions} past Claude sessions here for what you keep telling Claude`);
+
     if (children.length)
       console.error(`· workspace: wiring ${repo} and ${children.length} child repo(s) — ${children.join(", ")}`);
 
@@ -1615,8 +1622,26 @@ async function runInitCommand(
       }
     }
 
-    // Under trail: where this repo's learnings are, and how many there already are.
-    if (TRAIL) {
+    // Under trail: what init learned from past sessions, where this repo's
+    // learnings are, and how many there already are.
+    let learnedNow = false;
+    if (TRAIL && pastRead) {
+      if (!pastRead.done) console.error("· still reading your past sessions…");
+      const { result, saved } = await finishPastRead(repo, pastRead);
+      learnedNow = saved.length > 0;
+      if (saved.length) {
+        const n = saved.length;
+        console.error(`✓ learned ${n} thing${n === 1 ? "" : "s"} you told Claude more than once, from your last ${result.read} sessions here`);
+        for (const note of saved) console.error(`    ${note.scope === "personal" ? "just for you " : "for your team"} · ${note.title}`);
+        const team = saved.filter((s) => s.scope === "repo").length;
+        console.error(
+          `· Claude follows them from your next session${team ? `; commit ${LEARNINGS_DIR}/ and your teammates' Claude follows the team ones too` : ""}`,
+        );
+      } else if (result.reason === "failed") {
+        console.error(`· couldn't read your past sessions this time; ${cmd("graft init")} again tries again`);
+      }
+    }
+    if (TRAIL && !learnedNow) {
       const home = notesHome.get(repo);
       if (home) {
         const learnings = listNotes(repo, { branches: false }).filter((n) => n.scope === "repo");

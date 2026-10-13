@@ -3,7 +3,8 @@ import { execFileSync, spawn } from 'node:child_process';
 import { join, basename, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { readWiring } from './stats.js';
-import { formatBlastRadius, relevantRetrieval, formatOrientation, notesForPrompt, overlapsForPrompt } from './format.js';
+import { formatBlastRadius, relevantRetrieval, formatOrientation, notesForPrompt, overlapsForPrompt, standingDirective } from './format.js';
+import { standingLearnings } from '../notes/notes.js';
 import { indexFreshness, staleBanner } from '../context/check.js';
 import { patchStats, readStats, acquireLock, readSession, writeSession, resolveContextDir } from './state.js';
 import { graftCliPath, claudeScriptPath } from './paths.js';
@@ -635,7 +636,8 @@ export async function main(event: string): Promise<void> {
       const banner = staleBanner(indexFreshness(dir)) ?? undefined;
       const kept = keepsNotes(dir);
       const skills = kept ? skillsDirective(dir, cmd('graft skills show')) : '';
-      const orientation = formatOrientation(idx, undefined, banner, noteCount(dir), kept, skills);
+      const standing = kept && brand() === 'trail' ? standingDirective(standingLearnings(dir)) : '';
+      const orientation = formatOrientation(idx, undefined, banner, noteCount(dir), kept, skills + standing);
       emit('SessionStart', upkeep.length ? `${upkeep.join('\n')}\n\n${orientation}` : orientation);
     } catch {
       // No INDEX.md (never built here). An upgrade nudge is still worth saying.

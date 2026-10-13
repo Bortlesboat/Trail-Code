@@ -5,12 +5,15 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { digest, ownWords, readSession, scrub, sessionFiles, verify, type PastSession } from "../src/notes/cold-start.js";
-import { savedLine } from "../src/notes/notes.js";
+import { standingDirective } from "../src/claude/format.js";
+import { parseNote, savedLine, standingLearnings } from "../src/notes/notes.js";
 import { claudeProjectDir } from "../src/notes/session-cost.js";
+import { tmpRepo } from "./helpers.js";
 
 function transcript(entries: object[]): string {
   return entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
@@ -127,4 +130,101 @@ test("the closing line says who a learning is for, and what it took when trail k
     "📝 Saved for your team · took 6 min and ~41k tokens to work out · commit it and your teammates' Claude skips that",
   );
   assert.equal(savedLine({ scope: "repo" }), "📝 Saved for your team · commit it and your teammates' Claude starts from it");
+});
+
+/* ---- trail init, end to end, with a stand-in for Claude Code on PATH ---- */
+
+/** A `claude` that answers --version, and answers -p with two findings citing the transcripts below. */
+function fakeClaude(): string {
+  const bin = mkdtempSync(join(tmpdir(), "fake-claude-"));
+  const answer = {
+    is_error: false,
+    total_cost_usd: 0.01,
+    structured_output: {
+      findings: [
+        {
+          title: "Run go test with -race before pushing",
+          for: "team",
+          body: "## Decided\n- Run `go test -race ./...` before every push; CI runs it too.",
+          evidence: [
+            { session: "aaaaaaaa", quote: "always run go test with -race before pushing" },
+            { session: "bbbbbbbb", quote: "always run go test with -race before pushing" },
+          ],
+        },
+        {
+          title: "Say what you understood before building",
+          for: "you",
+          body: "## Decided\n- Restate the task in a few lines and wait for a yes.",
+          evidence: [
+            { session: "aaaaaaaa", quote: "tell me what you understood first" },
+            { session: "bbbbbbbb", quote: "tell me what you understood first" },
+          ],
+        },
+      ],
+    },
+  };
+  writeFileSync(
+    join(bin, "claude"),
+    `#!/usr/bin/env node\nif (process.argv.includes("--version")) { console.log("9.9.9"); process.exit(0); }\nprocess.stdin.resume(); process.stdin.on("end", () => console.log(${JSON.stringify(JSON.stringify(answer))}));\n`,
+  );
+  chmodSync(join(bin, "claude"), 0o755);
+  return bin;
+}
+
+function initRun(repo: string, home: string, bin: string) {
+  const r = spawnSync(process.execPath, ["--import", "tsx", join(process.cwd(), "src", "bin", "trail.ts"), "init", repo, "--agents", "claude", "--no-build", "--no-global"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      TRAIL_HOME: join(home, ".trail"),
+      PATH: `${bin}:${process.env.PATH}`,
+      DO_NOT_TRACK: "1",
+      TRAIL_NO_FETCH: undefined,
+      CLAUDECODE: undefined,
+      TRAIL_INVOKED_AS: undefined,
+    },
+  });
+  return { status: r.status, err: r.stderr };
+}
+
+test("trail init reads past sessions by itself and saves what came up twice, once per repo", () => {
+  const home = mkdtempSync(join(tmpdir(), "cold-init-home-"));
+  const repo = tmpRepo("cold-init");
+  spawnSync("git", ["init", "-q"], { cwd: repo });
+  const projects = claudeProjectDir(repo, home);
+  mkdirSync(projects, { recursive: true });
+  for (const id of ["aaaaaaaa-1111", "bbbbbbbb-2222"]) {
+    writeFileSync(
+      join(projects, `${id}.jsonl`),
+      transcript([
+        user("tell me what you understood first", { cwd: repo }),
+        said("I pushed it."),
+        user("always run go test with -race before pushing", { cwd: repo }),
+      ]),
+    );
+  }
+  const bin = fakeClaude();
+
+  const first = initRun(repo, home, bin);
+  assert.equal(first.status, 0, first.err);
+  assert.match(first.err, /· reading your 2 past Claude sessions here/);
+  assert.match(first.err, /✓ learned 2 things you told Claude more than once, from your last 2 sessions here/);
+  assert.match(first.err, /for your team · Run go test with -race before pushing/);
+  assert.match(first.err, /just for you  · Say what you understood before building/);
+
+  const [file] = readdirSync(join(repo, ".trail", "learnings")).filter((f) => f.endsWith(".md"));
+  const team = parseNote(readFileSync(join(repo, ".trail", "learnings", file!), "utf8"), file!)!;
+  assert.equal(team.standing, true);
+  assert.match(team.body, /Told to Claude in 2 past sessions here/);
+
+  // The session-start directive lists both, the user's own first.
+  process.env.TRAIL_HOME = join(home, ".trail");
+  const directive = standingDirective(standingLearnings(repo));
+  assert.ok(directive.indexOf("Say what you understood") < directive.indexOf("Run go test with -race"));
+
+  const again = initRun(repo, home, bin);
+  assert.equal(again.status, 0, again.err);
+  assert.doesNotMatch(again.err, /reading your/, "read once per repo");
 });

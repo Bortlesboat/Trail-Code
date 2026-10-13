@@ -95,8 +95,8 @@ export const EVENTS: Record<string, ReadonlySet<string>> = {
    *  are trail's activation. Paths and titles never travel. */
   learnings_committed: new Set<string>(['added_bucket', 'total_bucket', 'first_look']),
   /** `trail init` read the repo's past Claude sessions for learnings: how it
-   *  went, how many sessions it read and findings it offered and the person
-   *  kept, as buckets, how long it took, and the model. The messages and the
+   *  went, how many sessions there were, findings Claude offered and trail
+   *  saved, as buckets, how long it took, and the model. The messages and the
    *  findings never travel. */
   cold_start: new Set<string>(['outcome', 'sessions_bucket', 'offered_bucket', 'picked_bucket', 'duration_bucket', 'model']),
   /** `trail learn` saved a correction as a takeaway on a skill (into

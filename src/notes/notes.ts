@@ -46,6 +46,10 @@ export interface Note {
   teammate?: boolean;
   /** `repo`: in the repo's `.trail/learnings/`, for everyone. `personal`: in ~/.trail, this machine only. */
   scope?: "repo" | "personal";
+  /** A rule or preference for every session here, not knowledge about one
+   * task: what the user kept having to tell Claude. The session-start hook
+   * lists these up front, since no single task would bring them up. */
+  standing?: boolean;
   /** Found on a teammate's pushed branch (`origin/kumar/jitter`) rather than in
    * this checkout. `path` is then `<ref>:.trail/learnings/<name>`, readable
    * with `git show`, and the whole body travels with the note. */
@@ -78,6 +82,7 @@ export function renderNote(n: Omit<Note, "path">): string {
   if (n.cost?.minutes !== undefined) cost.push(`minutes: ${n.cost.minutes}`);
   if (n.cost?.tokens !== undefined) cost.push(`tokens: ${n.cost.tokens}`);
   if (cost.length) fm.push(`cost: { ${cost.join(", ")} }`);
+  if (n.standing) fm.push("standing: true");
   if (n.touches.length) fm.push("touches:", ...n.touches.map((t) => `  - ${scalar(t)}`));
   fm.push("---", "");
   return `${fm.join("\n")}\n${n.body.trim()}\n`;
@@ -110,6 +115,7 @@ export function parseNote(text: string, path: string): Note | null {
     cost: minutes !== undefined || tokens !== undefined ? { minutes, tokens } : undefined,
     touches: Array.isArray(d.touches) ? d.touches.map(String) : [],
     body: parsed.content.trim(),
+    ...(d.standing === true ? { standing: true } : {}),
   };
 }
 
@@ -224,6 +230,7 @@ export interface WriteNoteInput {
   branch?: string;
   cost?: NoteCost;
   touches?: string[];
+  standing?: boolean;
 }
 
 /**
@@ -254,9 +261,19 @@ export function writeNote(dir: string, input: WriteNoteInput, scope: LearningSco
     touches: input.touches ?? [],
     body: input.body,
     scope: inRepo ? "repo" : "personal",
+    ...(input.standing ? { standing: true } : {}),
   };
   writeFileSync(join(notes, name), renderNote(note));
   return { ...note, path: join(notes, name) };
+}
+
+/**
+ * The standing learnings for `dir`: the team's in the checkout and the
+ * person's own, never ones on a teammate's unmerged branch, which nobody has
+ * reviewed yet.
+ */
+export function standingLearnings(dir: string): Note[] {
+  return listNotes(dir, { branches: false }).filter((n) => n.standing && !n.ref);
 }
 
 /** Where a learning is, as the agent and the person read it: `.trail/learnings/x.md`, `~/.trail/…`, or `origin/b:.trail/…`. */
