@@ -14,11 +14,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/trailhq/Graft.git"
+    "url": "git+https://github.com/trailhq/Trail-Code.git"
   },
-  "homepage": "https://github.com/trailhq/Graft#readme",
+  "homepage": "https://github.com/trailhq/Trail-Code#readme",
   "bugs": {
-    "url": "https://github.com/trailhq/Graft/issues"
+    "url": "https://github.com/trailhq/Trail-Code/issues"
   },
   "publishConfig": {
     "access": "public"
