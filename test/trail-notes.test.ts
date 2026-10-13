@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import {
   costLabel,
   findNotes,
@@ -80,7 +80,7 @@ test("writeNote names the file by date, title and author, never overwrites, and 
   const a = writeNote(repo, { title: "Bbox coordinates are off on rotated PDFs", body: BODY, author: "Priya", date: "2026-10-07" });
   const b = writeNote(repo, { title: "Bbox coordinates are off on rotated PDFs", body: "again", author: "Priya", date: "2026-10-07" });
   const notes = join(repoPlace(repo).dir, "notes");
-  assert.ok(notes.startsWith(join(TRAIL_HOME, "repos", "local") + "/"), notes);
+  assert.ok(notes.startsWith(join(TRAIL_HOME, "repos", "local") + sep), notes);
   assert.equal(a.path, join(notes, "2026-10-07-bbox-coordinates-are-off-on-rotated-priya.md"));
   assert.equal(b.path, join(notes, "2026-10-07-bbox-coordinates-are-off-on-rotated-priya-2.md"));
   assert.match(readFileSync(a.path, "utf8"), /Rotate each box/);

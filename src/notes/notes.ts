@@ -279,8 +279,10 @@ export function standingLearnings(dir: string): Note[] {
 /** Where a learning is, as the agent and the person read it: `.trail/learnings/x.md`, `~/.trail/…`, or `origin/b:.trail/…`. */
 export function notePlace(n: Note): string {
   if (n.ref) return n.path;
-  const at = n.path.lastIndexOf(`/${LEARNINGS_DIR}/`);
-  return at === -1 ? shownPath(n.path) : n.path.slice(at + 1);
+  // Windows paths come with backslashes; the place is shown with `/` either way.
+  const path = n.path.replace(/\\/g, "/");
+  const at = path.lastIndexOf(`/${LEARNINGS_DIR}/`);
+  return at === -1 ? shownPath(n.path) : path.slice(at + 1);
 }
 
 export interface NoteTarget {

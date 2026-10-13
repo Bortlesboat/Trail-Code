@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { digest, ownWords, readSession, scrub, sessionFiles, verify, type PastSession } from "../src/notes/cold-start.js";
 import { standingDirective } from "../src/claude/format.js";
 import { commitLines, namesLabel, parseNote, PERSONAL_SAVED_LINE, standingLearnings } from "../src/notes/notes.js";
@@ -70,7 +70,7 @@ test("a repo's sessions are its own and its worktrees', not a sibling's with the
   write(repo, repo, "main");
   write(`${repo}/.claude/worktrees/x`, `${repo}/.claude/worktrees/x`, "worktree");
   write("/work/assign-old", "/work/assign-old", "sibling");
-  const names = sessionFiles([repo], home).map((p) => p.split("/").pop()).sort();
+  const names = sessionFiles([repo], home).map((p) => basename(p)).sort();
   assert.deepEqual(names, ["main.jsonl", "worktree.jsonl"]);
 });
 

@@ -187,7 +187,8 @@ test("a failed send keeps the uses for next time", async () => {
   mkdirSync(process.env.TRAIL_HOME!, { recursive: true });
 });
 
-test("the workspace token is written readable by its owner only", async () => {
+// Windows has no owner-only file mode to check; the folder's ACL is what guards it there.
+test("the workspace token is written readable by its owner only", { skip: process.platform === "win32" }, async () => {
   const { statSync } = await import("node:fs");
   const { writeCloud } = await import("../src/cloud/workspace.js");
   const { cloud } = cloudFor([]);
