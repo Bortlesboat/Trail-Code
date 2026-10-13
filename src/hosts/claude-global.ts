@@ -160,3 +160,42 @@ export function disableGraftServerIn(home: string, folder: string): GlobalWrite 
     return { id, path, action: 'skipped-unparseable' };
   }
 }
+
+/**
+ * A repo wired for trail commits `.mcp.json` with a `trail mcp` server. On a
+ * teammate's machine that has graft but not the trail command, that server
+ * can't start. So this folder gets a server of the same name, in Claude Code's
+ * per-folder scope (which wins over the project's), that runs `graft mcp`: the
+ * same program. graft's own user-level server goes off here, so the tools
+ * aren't listed twice. Once `trail` is installed, the per-folder one goes and
+ * the committed one runs. Takes effect from the next session in the folder.
+ */
+export function fitTrailServerToMachine(home: string, folder: string, has: { trail: boolean; graft: boolean }): GlobalWrite {
+  const id = 'claude-folder-trail-server';
+  const path = join(home, '.claude.json');
+  try {
+    const loaded = readJsonObject(path);
+    if (loaded === 'unparseable') return { id, path, action: 'skipped-unparseable' };
+    const root = loaded.root;
+    const here = root.projects?.[folder] as { mcpServers?: Record<string, { command?: string }>; disabledMcpServers?: unknown } | undefined;
+    const ours = here?.mcpServers?.trail?.command === 'graft';
+    if (has.trail) {
+      if (!ours) return { id, path, action: 'unchanged' };
+      delete here!.mcpServers!.trail;
+    } else if (has.graft && !ours) {
+      const projects = (root.projects ??= {}) as Record<string, typeof here>;
+      const p = (projects[folder] ??= {})!;
+      p.mcpServers = { ...(p.mcpServers ?? {}), trail: { command: 'graft', args: ['mcp'] } as { command: string } };
+      if (root.mcpServers?.graft) {
+        const off = Array.isArray(p.disabledMcpServers) ? (p.disabledMcpServers as string[]) : [];
+        if (!off.includes('graft')) p.disabledMcpServers = [...off, 'graft'];
+      }
+    } else {
+      return { id, path, action: 'unchanged' };
+    }
+    writeFileSync(path, `${JSON.stringify(root, null, 2)}\n`);
+    return { id, path, action: 'updated' };
+  } catch {
+    return { id, path, action: 'skipped-unparseable' };
+  }
+}

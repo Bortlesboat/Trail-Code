@@ -131,7 +131,12 @@ export function noticeStampPath(home: string = homedir()): string {
 
 /** Whether a `trail` executable is on PATH. Only checked when the notice is due. */
 export function trailOnPath(env: NodeJS.ProcessEnv = process.env): boolean {
-  const names = process.platform === "win32" ? ["trail.cmd", "trail.exe", "trail"] : ["trail"];
+  return commandOnPath("trail", env);
+}
+
+/** Whether an executable called `name` is on PATH: a few stats, no process spawned. */
+export function commandOnPath(name: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  const names = process.platform === "win32" ? [`${name}.cmd`, `${name}.exe`, name] : [name];
   for (const dir of (env.PATH ?? "").split(delimiter)) {
     if (!dir) continue;
     for (const n of names) {

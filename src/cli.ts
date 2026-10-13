@@ -23,7 +23,7 @@ import { buildGraphIfMissing, runInit } from "./claude/init.js";
 import { statuslineWanted } from "./claude/settings-merge.js";
 import { runHostsInit } from "./hosts/init.js";
 import { hostIds } from "./hosts/registry.js";
-import { ensureRepoHome, keepsNotes, noteCount, rememberRepo, repoName, repoPlace, shownPath } from "./notes/home.js";
+import { checkoutRoot, ensureRepoHome, keepsNotes, noteCount, rememberRepo, repoName, repoPlace, shownPath } from "./notes/home.js";
 import { parseBrainArg, connectBrain, pullBrain, brainStatus } from "./brain/connect.js";
 import { rulesForPointers } from "./brain/attach.js";
 import { clearLink, type BrainLink } from "./brain/link.js";
@@ -107,7 +107,8 @@ import { formatOverlap, maybeRefreshBranches, overlapsWith, pushedWhen, readBran
 import { ensureRepoTrail, LEARNINGS_DIR } from "./notes/repo-trail.js";
 import type { AskResult } from "./ask/ask.js";
 import { setInputRate } from "./context/savings.js";
-import { formatUpdateNudge, maybeRefreshInBackground, readStamp, readUpdateCache, refreshUpdateCache, wiredHostIds, writeStamp } from "./upkeep.js";
+import { formatUpdateNudge, maybeRefreshInBackground, readStamp, readUpdateCache, refreshUpdateCache, wiredHostIds, wiringOpts, writeStamp } from "./upkeep.js";
+import { shouldMoveToTrail } from "./upkeep-run.js";
 import {
   countBucket,
   savedTokensBucket,
@@ -299,7 +300,7 @@ function parseTabs(raw: string | undefined): VizTab[] | undefined {
  * not editorialize on stderr at startup (`mcp` runs its own upkeep at boot, and
  * `_update-check` IS the fetch).
  */
-const UPKEEP_SKIP = new Set(["version", "upgrade", "_update-check", "_brain-refresh", "mcp"]);
+const UPKEEP_SKIP = new Set(["version", "upgrade", "_update-check", "_brain-refresh", "_trail-past-read", "mcp"]);
 
 /**
  * Every other command: top up the cached registry answer in the background and,
@@ -362,6 +363,17 @@ program
 
 // Hidden: spawned detached by maybeSyncInBackground when a workspace repo's
 // learnings changed, or uses are waiting to go. Running it by hand syncs now.
+// A repo that moved from graft to trail at session start reads its past
+// sessions here, detached, so the session doesn't wait on it.
+program
+  .command("_trail-past-read", { hidden: true })
+  .argument("<dir>")
+  .action(async (dir: string) => {
+    const repo = resolve(dir);
+    const read = beginPastRead(repo);
+    if (read) await finishPastRead(repo, read);
+  });
+
 program
   .command("_trail-sync", { hidden: true })
   .description("internal: send this repo's learnings and the waiting uses to the Trail workspace")
@@ -444,7 +456,27 @@ grouped(program.command("upgrade"), GROUP.setup)
     const result = runUpgrade(import.meta.url);
     console.log(formatUpgradeReport(result));
     if (result.ran && !result.ok) process.exit(1);
+    if (!TRAIL && result.ok && result.trailVersion) moveHereToTrail(process.cwd());
   });
+
+/**
+ * After `graft upgrade` brought the trail command along, the repo it ran in
+ * moves to trail now, with the agents and flags its last init chose, and its
+ * past sessions are read for learnings. Every other repo wired as graft moves
+ * the next time a session opens in it (upkeep-run.ts).
+ */
+function moveHereToTrail(dir: string): void {
+  const root = checkoutRoot(dir);
+  if (!root || !shouldMoveToTrail(root)) return;
+  const stamp = readStamp(root);
+  const hosts = [...new Set([...(stamp?.hosts ?? []), ...wiredHostIds(root)])];
+  const o = wiringOpts(stamp);
+  const flags = [o.global ? null : "--no-global", o.mcp ? null : "--no-mcp", o.hooks ? null : "--no-hooks", o.statusline ? null : "--no-statusline"].filter(
+    (f): f is string => f !== null,
+  );
+  console.log(`· moving this repo to trail: trail init ${hosts.length ? `--agents ${hosts.join(" ")} ` : ""}${flags.join(" ")}`.trimEnd());
+  spawnSync("trail", ["init", root, "--agents", ...hosts, ...flags], { stdio: "inherit" });
+}
 
 grouped(program.command("build"), GROUP.setup)
   .description(

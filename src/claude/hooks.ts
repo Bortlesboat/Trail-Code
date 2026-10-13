@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync, spawn } from 'node:child_process';
-import { join, basename, isAbsolute } from 'node:path';
+import { join, basename, isAbsolute, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { readWiring } from './stats.js';
 import { formatBlastRadius, relevantRetrieval, formatOrientation, notesForPrompt, overlapsForPrompt, standingDirective } from './format.js';
@@ -19,7 +19,8 @@ import { readLink } from '../brain/link.js';
 import { pickedAgents } from '../brain/push.js';
 import { readTrailSnapshot, trailContextLine } from '../brain/watch-trail.js';
 import { maybeAutopush, readTrailPushState, recordSeenSuggestions, type AutopushDeps } from '../brain/autopush.js';
-import { adoptRepoBrand, brand, cmd, tag } from '../brand.js';
+import { adoptRepoBrand, brand, cmd, commandOnPath, repoWiredForTrail, tag, trailOnPath } from '../brand.js';
+import { fitTrailServerToMachine } from '../hosts/claude-global.js';
 import { NOTE_CALL } from '../notes/session-cost.js';
 import { keepsNotes, noteCount, repoPlace } from '../notes/home.js';
 import { branchesStale, refreshBranches, SESSION_REFRESH_MS } from '../notes/branches.js';
@@ -656,6 +657,8 @@ export async function main(event: string): Promise<void> {
     // hook still sends nothing; the CLI or the MCP server sends it later.
     flushClosedSessions(dir);
     trailAtStart(dir);
+    // A repo on trail, opened on a machine that has graft but not the trail command.
+    if (repoWiredForTrail(dir)) fitTrailServerToMachine(homedir(), resolve(dir), { trail: trailOnPath(), graft: commandOnPath('graft') });
     const trailLine = await trail;
     if (trailLine) upkeep.push(trailLine);
     try {
