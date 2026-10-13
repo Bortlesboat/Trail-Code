@@ -552,6 +552,36 @@ export function trackRepoSeen(dir: string, now = Date.now()): void {
   }
 }
 
+/**
+ * When the learnings committed on this checkout's HEAD went up since the last
+ * session here: how many came in and how many there are, as buckets. A repo
+ * with committed learnings is where trail starts paying off, so this is the
+ * activation count. `first_look` marks the first time this clone is seen, so
+ * a clone of a repo that already had them isn't counted as new ones.
+ */
+export function trackLearningsCommitted(dir: string): void {
+  try {
+    const place = repoPlace(dir);
+    if (!place.git) return;
+    const listed = execFileSync('git', ['ls-tree', '-r', '--name-only', 'HEAD', '--', '.trail/learnings'], {
+      cwd: place.checkout, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000,
+    });
+    const count = listed.split('\n').filter((f) => f.endsWith('.md')).length;
+    const mark = join(cacheDir(place.checkout), 'trail-learnings-committed.json');
+    const before = readJson<{ count?: number }>(mark)?.count;
+    if (before === count) return;
+    writeJsonAtomic(mark, { count }, true);
+    if (count <= (before ?? 0)) return;
+    track(
+      'learnings_committed',
+      { added_bucket: countBucket(count - (before ?? 0)), total_bucket: countBucket(count), first_look: String(before === undefined) },
+      { repo: place.checkout },
+    );
+  } catch {
+    // Not a repo with a HEAD yet, or git is slow: counted next session.
+  }
+}
+
 /** The most the session-start hook waits on `git fetch` for teammates' branches. */
 export const BRANCH_FETCH_CAP_MS = 3000;
 
@@ -574,9 +604,12 @@ function trailAtStart(dir: string): void {
   }
   maybeSyncInBackground(dir);
   trackRepoSeen(dir);
+  trackLearningsCommitted(dir);
 }
 
 export async function main(event: string): Promise<void> {
+  // trail's own headless Claude calls (the first-run read of past sessions) run with this set.
+  if (process.env.TRAIL_NO_HOOKS === '1') return;
   const input = readStdin();
   const dir = projectDir(input);
   adoptRepoBrand(dir);
