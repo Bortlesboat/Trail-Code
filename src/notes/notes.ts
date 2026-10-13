@@ -19,7 +19,7 @@
 import { readdirSync, readFileSync, existsSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import matter from "gray-matter";
+import { matter, type FrontMatterFile } from "../util/front-matter.js";
 import { readBranchCache } from "./branches.js";
 import { changedFiles, ownPath } from "./git-facts.js";
 import { checkoutRoot, childCheckouts, ensureRepoHome, notePlaces, repoPlace, shownPath } from "./home.js";
@@ -94,7 +94,7 @@ function num(v: unknown): number | undefined {
 
 /** A note file, or null when it isn't one (no title in its frontmatter). */
 export function parseNote(text: string, path: string): Note | null {
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: FrontMatterFile;
   try {
     parsed = matter(text);
   } catch {
