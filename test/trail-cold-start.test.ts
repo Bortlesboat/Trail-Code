@@ -215,7 +215,8 @@ function initRun(repo: string, home: string, bin: string) {
   return { status: r.status, err: r.stderr };
 }
 
-test("trail init reads past sessions by itself and saves what came up twice, once per repo", () => {
+// The stand-in for Claude Code is a shebang script, which Windows won't run as `claude`.
+test("trail init reads past sessions by itself and saves what came up twice, once per repo", { skip: process.platform === "win32" }, () => {
   const home = mkdtempSync(join(tmpdir(), "cold-init-home-"));
   const repo = tmpRepo("cold-init");
   spawnSync("git", ["init", "-q"], { cwd: repo });

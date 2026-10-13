@@ -97,7 +97,8 @@ export function repoRoots(repo: string): string[] {
 }
 
 function within(path: string, roots: string[]): boolean {
-  return roots.some((r) => path === r || path.startsWith(r + sep));
+  // Either separator: a transcript's cwd and git's worktree list don't always agree on Windows.
+  return roots.some((r) => path === r || path.startsWith(r + sep) || path.startsWith(r + "/"));
 }
 
 /**

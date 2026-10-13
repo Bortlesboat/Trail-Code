@@ -48,6 +48,8 @@ test('a graft repo moves to trail once the trail command is installed, and only 
   const saved = { path: process.env.PATH, home: process.env.HOME, trailHome: process.env.TRAIL_HOME, brand: process.env[BRAND_ENV] };
   process.env.HOME = home;
   process.env.TRAIL_HOME = join(home, '.trail');
+  const savedProfile = process.env.USERPROFILE;
+  process.env.USERPROFILE = home;
   try {
     delete process.env[BRAND_ENV];
     runInit(repo, { build: false, global: false });
@@ -70,6 +72,7 @@ test('a graft repo moves to trail once the trail command is installed, and only 
     assert.doesNotMatch(second.lines.join('\n'), /just moved/, 'already on trail');
   } finally {
     process.env.PATH = saved.path;
+    if (savedProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = savedProfile;
     for (const [k, v] of [['HOME', saved.home], ['TRAIL_HOME', saved.trailHome], [BRAND_ENV, saved.brand]] as const)
       if (v === undefined) delete process.env[k]; else process.env[k] = v;
   }
