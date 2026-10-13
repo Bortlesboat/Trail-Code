@@ -141,6 +141,7 @@ export function cloudLines(repo: string, opts: NudgeOptions): string[] {
     const agent = opts.agent ?? !process.stdout.isTTY;
     const st = readState(env);
     const cloud = readCloud(env);
+    if (!cloud && env.TRAIL_CLOUD !== "1") return [];
 
     if (cloud) {
       if (st.linked) {

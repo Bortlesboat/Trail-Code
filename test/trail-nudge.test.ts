@@ -5,6 +5,7 @@
  * session to the next. A background wait registers the link with Trail, picks
  * up the sign-in, uploads the picked repos' learnings, and the next command
  * says so once. Connected, a repo outside the workspace gets one question.
+ * All of it is off unless TRAIL_CLOUD=1, or the machine is already connected.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -23,6 +24,7 @@ process.env.DO_NOT_TRACK = "1";
 process.env[BRAND_ENV] = "trail";
 process.env.TRAIL_URL = "http://trail.test";
 process.env.TRAIL_NO_FETCH = "1";
+process.env.TRAIL_CLOUD = "1";
 
 /** A fresh ~/.trail for each test, so links, sessions and connections never leak between them. */
 function freshHome(): NodeJS.ProcessEnv {
@@ -56,6 +58,13 @@ function lines(d: string, command: "ask" | "note" | "check", session: string, op
 function stateOf(): { pending?: { state: string } } {
   return JSON.parse(readFileSync(join(process.env.TRAIL_HOME!, "cloud-nudge.json"), "utf8"));
 }
+
+test("with signing in off, nobody is offered a link, learnings or not", () => {
+  freshHome();
+  const { dir } = repo();
+  const off = cloudLines(dir, { command: "ask", agent: true, env: { ...process.env, TRAIL_CLOUD: undefined, CLAUDE_CODE_SESSION_ID: "s1" }, startWait: noWait });
+  assert.deepEqual(off, []);
+});
 
 test("no learning yet: nobody is asked to sign in", () => {
   freshHome();

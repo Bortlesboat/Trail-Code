@@ -54,6 +54,16 @@ export function readCloud(env: NodeJS.ProcessEnv = process.env): Cloud | null {
   return c?.token && c.workspace?.slug ? c : null;
 }
 
+/**
+ * Whether the workspace side of trail is on: the sign-in link at the end of a
+ * reply, and `login`, `logout` and `workspace`. Committing `.trail/` already
+ * shares learnings with a team, so it stays off until signing in gives more
+ * than that. TRAIL_CLOUD=1 turns it on; a machine already connected keeps it.
+ */
+export function cloudEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.TRAIL_CLOUD === "1" || readCloud(env) !== null;
+}
+
 /** Owner-only: the file holds the workspace token. */
 export const SECRET_FILE_MODE = 0o600;
 

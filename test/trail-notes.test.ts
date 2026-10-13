@@ -264,10 +264,14 @@ test("trail note saves a learning in .trail/learnings/ to commit, ask shows it t
 
   const saved = run("trail", ["note", d, "--title", "Bbox coordinates are off on rotated PDFs", "--minutes", "12", "--tokens", "9600"], home, BODY);
   assert.equal(saved.status, 0, saved.err);
-  assert.match(saved.out, /^✓ learning saved · \.trail\/learnings\/\d{4}-\d{2}-\d{2}-bbox-coordinates-are-off-on-rotated-priya\.md$/m);
+  assert.match(saved.out, /^✓ saved for your team · \.trail\/learnings\/\d{4}-\d{2}-\d{2}-bbox-coordinates-are-off-on-rotated-priya\.md$/m);
   assert.match(saved.out, /this took 12 min and ~9\.6k tokens to figure out\. the next session that touches bbox\.go gets it for ~\d+/);
   assert.match(saved.out, /^· commit it with this change \(git add \.trail\/learnings\/[^)]+\) so your team's Claude starts from it too$/m);
-  assert.match(saved.out, /📝 Saved a learning for your team's next session/, "the closing line, for the agent's reply");
+  assert.match(
+    saved.out,
+    /\[trail\] Close your reply with this line, word for word: 📝 Saved for your team · took 12 min and ~9\.6k tokens to work out · commit it and your teammates' Claude skips that$/m,
+    "the closing line, for the agent's reply",
+  );
   const [file] = readdirSync(join(d, ".trail", "learnings")).filter((f) => f.endsWith(".md"));
   const written = parseNote(readFileSync(join(d, ".trail", "learnings", file!), "utf8"), "x");
   assert.equal(written?.author, "Priya");
@@ -287,7 +291,7 @@ test("trail note saves a learning in .trail/learnings/ to commit, ask shows it t
 
   const st = run("trail", ["status", d], home);
   assert.equal(st.status, 0, st.err);
-  assert.match(st.out, /^learnings {3}1 in \.trail\/learnings\/$/m);
+  assert.match(st.out, /^learnings {3}1 for the team in \.trail\/learnings\/$/m);
   assert.equal(JSON.parse(run("trail", ["status", d, "--json"], home).out).learnings.repo, 1);
 
   const un = run("trail", ["uninstall", d, "-y", "--no-global"], home);
@@ -300,8 +304,9 @@ test("trail note --personal keeps it in ~/.trail, out of the repo", () => {
   const d = repoWithCode();
   const saved = run("trail", ["note", d, "--personal", "--title", "My editor runs gofmt on save"], home, BODY);
   assert.equal(saved.status, 0, saved.err);
-  assert.match(saved.out, /^✓ learning saved · ~\/\.trail\/repos\/local\/[^/]+\/notes\/\d{4}-\d{2}-\d{2}-my-editor-runs-gofmt-on-save-priya\.md$/m);
-  assert.match(saved.out, /^· personal: kept on this machine, out of the repo$/m);
+  assert.match(saved.out, /^✓ saved just for you · ~\/\.trail\/repos\/local\/[^/]+\/notes\/\d{4}-\d{2}-\d{2}-my-editor-runs-gofmt-on-save-priya\.md$/m);
+  assert.match(saved.out, /^· just for you: kept on this machine, out of the repo$/m);
+  assert.match(saved.out, /📝 Saved just for you · stays on this machine, out of the repo$/m);
   assert.ok(existsSync(notesUnder(home)));
   assert.equal(existsSync(join(d, ".trail")), false);
 });
@@ -327,8 +332,9 @@ test("the skill speaks trail in a repo wired for it, keeps graft/ paths, and tea
   assert.match(trail, /`graft\/` holds a graph/, "the code map folder is still graft/");
   assert.doesNotMatch(trail, /\bgraft (ask|grep|skeleton|callers|map|build|check)\b/);
   assert.match(trail, /trail note --title/);
-  assert.match(trail, /It's written to `\.trail\/learnings\/`:\ncommit it with the change it came from/);
-  assert.match(trail, /`--personal`/);
+  assert.match(trail, /It's written to `\.trail\/learnings\/`\. Commit it\n  with the change it came from/);
+  assert.match(trail, /- Just for the user, with `--personal`: how this person likes to work/);
+  assert.doesNotMatch(trail, /trail learn|trail skills show/, "corrections are learnings too, not takeaways on a skill");
   assert.match(trail, /## If trail isn't installed/);
 });
 
@@ -349,9 +355,8 @@ test("the trail skill's description names when to use its commands, and the body
   const moments = content.indexOf("## When to reach for trail");
   assert.ok(moments >= 0 && moments < content.indexOf("## The tools"), "the moments come before the tool docs");
   assert.match(content, /\*\*When you finish a task that took real digging\*\*/);
-  assert.match(data.description, /corrects how something is done here, save it with trail learn/);
+  assert.match(data.description, /do the same when the user\s+corrects how something is done here/);
   assert.match(content, /\*\*When the user corrects how something is done here\*\*/);
-  assert.match(content, /`trail skills show <skill>` prints it/);
 });
 
 test("the session-start directive mentions learnings only in a repo that keeps them", async () => {

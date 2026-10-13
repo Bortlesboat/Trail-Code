@@ -93,12 +93,12 @@ import { patchBuildConfig, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
 import { latestSession, formatSessionStats, sessionInputRate } from "./claude/session-metrics.js";
 import { listSessionIds, readSession, sessionDir } from "./claude/state.js";
-import { costLabel, listNotes, noteName, notePlace, noteTargets, readingTokens, savedByNote, SECTIONS, sectionLead, shortDate, tokensLabel, writeNote, type Note, mentionedFiles } from "./notes/notes.js";
+import { costLabel, listNotes, noteName, notePlace, noteTargets, readingTokens, savedByNote, savedLine, SECTIONS, sectionLead, shortDate, tokensLabel, writeNote, type Note, mentionedFiles } from "./notes/notes.js";
 import { currentSessionCost } from "./notes/session-cost.js";
 import { currentBranch, noteAuthor } from "./notes/git-facts.js";
 import { confirm, fold, getSkill, learn, listSkills, publish, skillForAgent, skillName, skillStatus, type LearnResult } from "./skills/skills.js";
 import { clearPending, cloudLines, loginLink, sessionKey, waitForConnect } from "./cloud/nudge.js";
-import { addRepo, clearCloud, fetchMe, fetchTeam, isError, readCloud, writeCloud, type Cloud } from "./cloud/workspace.js";
+import { addRepo, clearCloud, cloudEnabled, fetchMe, fetchTeam, isError, readCloud, writeCloud, type Cloud } from "./cloud/workspace.js";
 import { inWorkspace, maybeSyncInBackground, recordActivity, runSyncChild, syncRepo } from "./cloud/workspace-sync.js";
 import type { CheckResult } from "./check/types.js";
 import { checkLocally } from "./check/local-check.js";
@@ -1150,7 +1150,8 @@ grouped(program.command("note", { hidden: !TRAIL }), GROUP.memory)
 // `trail learn` and `trail skills`: corrections become takeaways on a skill,
 // kept on this machine, and takeaways fold into its SKILL.md. Unlisted under
 // graft, like `note`, but they run.
-grouped(program.command("learn", { hidden: !TRAIL }), GROUP.memory)
+// Still runs; unlisted while learnings are the one thing trail keeps.
+grouped(program.command("learn", { hidden: true }), GROUP.memory)
   .description("Turn a correction into a takeaway on a skill, kept in ~/.trail (the takeaway on stdin)")
   .argument("<skill>", "the skill it belongs to, e.g. pdf-coords; a new name makes a new skill")
   .argument("[dir]", "repository root", ".")
@@ -1183,7 +1184,7 @@ grouped(program.command("learn", { hidden: !TRAIL }), GROUP.memory)
     console.log(`· ${cmd("graft skills")} fold ${r.skill.name} writes it into SKILL.md`);
   });
 
-const skillsCmd = grouped(program.command("skills", { hidden: !TRAIL }), GROUP.memory)
+const skillsCmd = grouped(program.command("skills", { hidden: true }), GROUP.memory)
   .description("List this repo's skills, and the takeaways waiting to fold into each")
   .argument("[dir]", "repository root", ".")
   .option("--json", "output as JSON")
@@ -1388,7 +1389,7 @@ async function runNoteCommand(repo: string, opts: NoteOptions): Promise<void> {
     console.log(JSON.stringify(saved.length === 1 ? saved[0] : saved, null, 2));
     return;
   }
-  for (const n of saved) console.log(`✓ learning saved · ${notePlace(n)}`);
+  for (const n of saved) console.log(`✓ ${n.scope === "personal" ? "saved just for you" : "saved for your team"} · ${notePlace(n)}`);
   const note = saved[0]!;
   const took = costLabel(note.cost);
   if (took) {
@@ -1409,13 +1410,9 @@ async function runNoteCommand(repo: string, opts: NoteOptions): Promise<void> {
     const paths = repoSaved.map(notePlace).join(" ");
     console.log(`· commit it with this change (git add ${paths}) so your team's Claude starts from it too`);
   } else {
-    console.log("· personal: kept on this machine, out of the repo");
+    console.log("· just for you: kept on this machine, out of the repo");
   }
-  if (!process.stdout.isTTY && TRAIL) {
-    console.log(
-      `[trail] Close your reply with this line, above any link trail asks you to end with: 📝 Saved a learning for your team's next session`,
-    );
-  }
+  if (!process.stdout.isTTY && TRAIL) console.log(`[trail] Close your reply with this line, word for word: ${savedLine(note)}`);
   for (const t of targets) {
     rememberRepo(t.dir);
     maybeSyncInBackground(t.dir);
@@ -2789,7 +2786,7 @@ function shortCount(n: number): string {
  */
 function statusCommand(name = "status"): Command {
   return new Command(name)
-    .description("Code map, learnings, workspace and tokens saved, on one screen")
+    .description("Code map, learnings and tokens saved, on one screen")
     .argument(...DIR_ARG)
     .option("--json", "machine-readable output")
     .action(async (dirArg: string | undefined, opts: { json?: boolean }) => {
@@ -2831,13 +2828,14 @@ function statusCommand(name = "status"): Command {
       else if (fresh === false) row("code map", `⚠ ${fmt(graph.meta.nodeCount)} nodes · behind the code, refreshed on the next query`);
       else row("code map", `✓ ${fmt(graph.meta.nodeCount)} nodes · in sync with the code`);
       if (kept) {
-        const parts = [`${inRepo} in ${LEARNINGS_DIR}/`];
+        const parts = [`${inRepo} for the team in ${LEARNINGS_DIR}/`];
         if (onBranches) parts.push(`${onBranches} on teammates' branches`);
-        if (personal) parts.push(`${personal} personal in ${shownPath(repoPlace(repo).dir)}`);
+        if (personal) parts.push(`${personal} just for you, on this machine`);
         row("learnings", parts.join(" · "));
       }
-      if (!cloud) row("workspace", "not connected · Claude offers a link once there are learnings to share");
-      else
+      if (!cloud) {
+        if (cloudEnabled()) row("workspace", "not connected · Claude offers a link once there are learnings to share");
+      } else
         row(
           "workspace",
           `${cloud.workspace.name} · ${cloud.repos.length} repo${cloud.repos.length === 1 ? "" : "s"}${shared ? ", this one included" : `, not this one (${cmd("graft workspace add")})`} · ${cloud.workspace.url}`,
@@ -2853,7 +2851,8 @@ if (TRAIL) {
   // login`. `connect` and `watch` still run, unlisted — connect so the
   // handoff links Trail already sent keep working.
   for (const c of [teamCheckCommand(), teamCommand()]) program.addCommand(c.helpGroup(GROUP.memory));
-  for (const c of [workspaceCommand(), loginCommand(), logoutCommand()]) program.addCommand(c.helpGroup(GROUP.cloud));
+  // Signing in waits until it gives a team more than committing .trail/ does.
+  for (const c of [workspaceCommand(), loginCommand(), logoutCommand()]) program.addCommand(c.helpGroup(GROUP.cloud), { hidden: !cloudEnabled() });
   // The brain's rules (`trail push`, `trail pull`) still run, unlisted: a
   // workspace is how a team shares now.
   program.addCommand(pushCommand(), { hidden: true });
@@ -2887,7 +2886,7 @@ if (TRAIL) {
     skills: "list skills, show one, fold takeaways in, publish to the repo",
     init: "wire trail into your agents",
     build: "rebuild the code map · --check fails if it's stale",
-    status: "code map, learnings, workspace and tokens saved",
+    status: "code map, learnings and tokens saved",
     upgrade: "install the latest trail",
     uninstall: "remove everything trail or graft wrote to this repo",
     telemetry: "show or turn off the anonymous usage stats",

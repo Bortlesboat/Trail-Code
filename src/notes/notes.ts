@@ -483,6 +483,18 @@ export function formatNoteHits(hits: NoteHit[]): string[] {
 }
 
 /**
+ * The line an agent closes its reply with after saving a learning: who it's
+ * for, what it took to work out, and for a team one, what committing it does.
+ */
+export function savedLine(note: Pick<Note, "scope" | "cost">): string {
+  if (note.scope === "personal") return "📝 Saved just for you · stays on this machine, out of the repo";
+  const took = costLabel(note.cost);
+  return took
+    ? `📝 Saved for your team · ${took} · commit it and your teammates' Claude skips that`
+    : "📝 Saved for your team · commit it and your teammates' Claude starts from it";
+}
+
+/**
  * The line that credits reused learnings, for the savings accumulator and the
  * agent's closing line: what they took to work out, less what reading them
  * here costs. Null when no shown learning carries a token cost.
@@ -491,5 +503,7 @@ export function learningSavingsLine(hits: NoteHit[]): string | null {
   const saved = hits.reduce((sum, h) => sum + savedByNote(h.note), 0);
   if (saved <= 0) return null;
   const read = hits.reduce((sum, h) => sum + readingTokens(h.note), 0);
-  return `[trail] learnings saved ≈ ${saved.toLocaleString("en-US")} tokens (estimate): what they took to work out, less the ~${read.toLocaleString("en-US")} to read them here.`;
+  const minutes = hits.reduce((sum, h) => sum + (h.note.cost?.minutes ?? 0), 0);
+  const time = minutes > 0 ? ` and ~${minutes} min` : "";
+  return `[trail] learnings saved ≈ ${saved.toLocaleString("en-US")} tokens${time} (estimate): what they took to work out, less the ~${read.toLocaleString("en-US")} tokens to read them here.`;
 }

@@ -115,11 +115,11 @@ test("every telemetry event says which name ran it", () => {
 
 // --- the two command layouts, end to end ---
 
-function run(name: "trail" | "graft", args: string[], home: string, cwd = process.cwd()) {
+function run(name: "trail" | "graft", args: string[], home: string, cwd = process.cwd(), extra: NodeJS.ProcessEnv = {}) {
   const r = spawnSync(process.execPath, ["--import", "tsx", join(process.cwd(), "src", "bin", `${name}.ts`), ...args], {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, ...homeEnv(home), DO_NOT_TRACK: "1", CLAUDECODE: undefined, TRAIL_INVOKED_AS: undefined },
+    env: { ...process.env, ...homeEnv(home), DO_NOT_TRACK: "1", CLAUDECODE: undefined, TRAIL_INVOKED_AS: undefined, TRAIL_CLOUD: undefined, ...extra },
   });
   return { status: r.status, out: r.stdout, err: r.stderr };
 }
@@ -133,14 +133,18 @@ function builtRepo(): string {
   return d;
 }
 
-test("trail --help groups the commands and lists the cloud ones at the top level", () => {
+test("trail --help groups the commands, and lists the workspace ones only once signing in is on", () => {
   const home = scratchHome();
   const r = run("trail", ["--help"], home);
   assert.equal(r.status, 0);
-  for (const heading of ["Find code", "Team memory:", "Setup:", "Workspace", "CI:"]) assert.ok(r.out.includes(heading), heading);
-  for (const c of ["note", "check", "team", "workspace", "login", "logout", "status"]) assert.match(r.out, new RegExp(`^  ${c} `, "m"), c);
-  // Still run, just not listed: the brain's rules gave way to the workspace.
-  for (const c of ["viz", "mcp", "stats", "watch", "connect", "trail", "push", "pull"]) assert.doesNotMatch(r.out, new RegExp(`^  ${c} `, "m"), c);
+  for (const heading of ["Find code", "Team memory:", "Setup:", "CI:"]) assert.ok(r.out.includes(heading), heading);
+  for (const c of ["note", "check", "team", "status"]) assert.match(r.out, new RegExp(`^  ${c} `, "m"), c);
+  // Still run, just not listed: the brain's rules, corrections on skills, and signing in.
+  for (const c of ["viz", "mcp", "stats", "watch", "connect", "trail", "push", "pull", "learn", "skills", "workspace", "login", "logout"])
+    assert.doesNotMatch(r.out, new RegExp(`^  ${c} `, "m"), c);
+  const on = run("trail", ["--help"], home, process.cwd(), { TRAIL_CLOUD: "1" });
+  assert.ok(on.out.includes("Workspace"));
+  for (const c of ["workspace", "login", "logout"]) assert.match(on.out, new RegExp(`^  ${c} `, "m"), c);
 });
 
 test("graft --help keeps its old flat list, including check and the trail group", () => {
@@ -177,14 +181,16 @@ test("trail check is the team check, not the freshness check", () => {
   assert.match(r.err, /not a git repository/);
 });
 
-test("trail status puts the code map and the workspace on one screen", () => {
+test("trail status puts the code map on one screen, and the workspace only once signing in is on", () => {
   const home = scratchHome();
   const d = builtRepo();
   run("trail", ["build", d], home);
   const r = run("trail", ["status", d], home);
   assert.equal(r.status, 0, r.err);
   assert.match(r.out, /^code map {4}✓ \d+ nodes · in sync with the code$/m);
-  assert.match(r.out, /^workspace {3}not connected · Claude offers a link once there are learnings to share$/m);
+  assert.doesNotMatch(r.out, /^workspace/m);
+  const on = run("trail", ["status", d], home, process.cwd(), { TRAIL_CLOUD: "1" });
+  assert.match(on.out, /^workspace {3}not connected · Claude offers a link once there are learnings to share$/m);
   const json = JSON.parse(run("trail", ["status", d, "--json"], home).out);
   assert.equal(json.workspace, null);
 });
