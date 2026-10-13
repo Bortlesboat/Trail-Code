@@ -93,10 +93,10 @@ Before a PR, `trail check` compares your change with what the team has learned a
 
 When you want the team's view across repos, your agent offers a link at the end of a reply. Sign in, create a workspace, tick the repos it gets, and invite your team with a link. The team page shows who is learning what, how often learnings are reused, and where work overlaps.
 
-Trying this branch before `@trailhq/trail` is published:
+`@trailhq/trail` isn't on npm yet. Until it is, install it from this repo:
 
 ```bash
-git clone -b feat/trail-cloud https://github.com/trailhq/Graft.git trail && cd trail
+git clone https://github.com/trailhq/Trail-Code.git trail && cd trail
 npm install && npm run build && node scripts/pack-trail.mjs
 npm install -g ./build/trail
 ```
