@@ -19,7 +19,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import matter from "gray-matter";
+import { matter, type FrontMatterFile } from "../util/front-matter.js";
 import { shortDate, slug } from "../notes/notes.js";
 import { ensureRepoHome, repoPlace } from "../notes/home.js";
 
@@ -79,7 +79,7 @@ function asDate(v: unknown): string {
 /* -------------------------------------------------------------------------- */
 
 export function parseTakeaway(text: string, path: string, skill: string): Takeaway | null {
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: FrontMatterFile;
   try {
     parsed = matter(text);
   } catch {
@@ -143,7 +143,7 @@ function readSkill(dirs: { repo: string; home: string }, name: string): Skill | 
   if (OWN_SKILLS.has(name)) return null;
   const at = skillFile(dirs, name);
   if (!at) return null;
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: FrontMatterFile;
   try {
     parsed = matter(readFileSync(at.file, "utf8"));
   } catch {
