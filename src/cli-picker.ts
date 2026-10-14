@@ -441,7 +441,9 @@ export function formatPlan(
 ): string {
   const dim = tty ? muted : (s: string) => s;
   const warn = tty ? amber : (s: string) => s;
-  const writes = plan.filter((p) => ids.includes(p.id)).flatMap((p) => p.writes);
+  // Codex, Hermes and Antigravity all write AGENTS.md: list each write once.
+  const all = plan.filter((p) => ids.includes(p.id)).flatMap((p) => p.writes);
+  const writes = [...new Map(all.map((w) => [`${w.path}\0${w.what}`, w])).values()];
   if (writes.length === 0) return 'would write — nothing (no agents selected)';
 
   const pad = (rows: PlannedWrite[], f: (p: string) => string) => {
