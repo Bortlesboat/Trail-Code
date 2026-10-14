@@ -30,12 +30,12 @@ Trail-code gives Claude Code, Cursor, Codex and other coding agents a map of you
   <a href="https://scorecard.dev/viewer/?uri=github.com/trailhq/Trail-Code"><img src="https://img.shields.io/ossf-scorecard/github.com/trailhq/Trail-Code?style=for-the-badge&label=openssf%20scorecard" /></a>
 </p>
 
-### Up to **4× cheaper** and **3× faster**, with better or no loss of correctness.
+### **46% fewer tool calls**, **60% less time**, and more real issues solved.
 
-| | Cold Claude Code | Claude Code with the graft map |
+| | Cold agent | Agent with the graft map |
 |---|---|---|
 | Tool calls, 162 runs | baseline | **46% fewer** |
-| Tokens, 162 runs | baseline | **42% fewer** |
+| Uncached input tokens, 162 runs | baseline | **42% fewer** |
 | Time, 162 runs | baseline | **60% less** |
 | SWE-bench Verified, 50 real issues | 27 solved (54%) | **33 solved (66%)** |
 
@@ -319,19 +319,19 @@ Coming soon: a Trail workspace, for your team's view across repos. A team page w
 
 An agent that reads the graft map should be cheaper and faster without getting more answers wrong. That's the whole claim, so we measured it instead of asserting it.
 
-The harness ran three variants of the same Claude Sonnet 5 agent with the same file tools: **cold** (explores from zero), **push** (a `trail ask --source` bundle up front), and **pull** (the `trail_find_code` and `trail_file_api` tools, nothing injected, context paid for only when asked). An Opus 4.8 judge scored correctness with a required-keyword floor, so a fast but wrong answer couldn't win by being fast. Cost is cache-aware: reads ≈0.1×, writes 1.25×, the billing model agents actually run under.
+The harness ran three variants of the same agent loop on Claude Sonnet 5, with the same file tools: **cold** (explores from zero), **push** (a `trail ask --source` bundle up front), and **pull** (the `trail_find_code` and `trail_file_api` tools, nothing injected, context paid for only when asked). An Opus 4.8 judge scored correctness with a required-keyword floor, so a fast but wrong answer couldn't win by being fast. Cost is cache-aware: reads ≈0.1×, writes 1.25×, the billing model agents actually run under.
 
 162 runs, two repos (this one and a real Node/Express auth service), 3 trials each, tasks split between single-file and multi-file questions.
 
-| Metric (mean/task) | Cold Claude Code | Claude Code with the graft map |
+| Metric (mean/task) | Cold agent | Agent with the graft map (push) |
 |---|---|---|
 | Cost ($) | 0.0429 | **0.0292 (32% lower)** |
-| Tokens | 8,070 | **4,650 (42% fewer)** |
+| Uncached input tokens | 8,070 | **4,650 (42% fewer)** |
 | Tool calls | 4.2 | **2.3 (46% fewer)** |
 | Latency (s) | 39.8 | **15.8 (60% less)** |
 | Correctness | 93% | 93% (equal) |
 
-The graft map never answered worse than cold, on any corpus. The pull variant gave up most of that speed for something bigger: correctness jumped to 98%, 5 points over cold, the strongest single result in the sweep. Push when speed is what you need; pull when being right matters more.
+Push, the column above, gave up 3 correctness points on one corpus for its savings. The pull variant never answered worse than cold on any corpus, and gave up most of that speed for something bigger: correctness jumped to 98%, 5 points over cold, the strongest single result in the sweep. Push when speed is what you need; pull when being right matters more.
 
 ---
 
@@ -362,7 +362,7 @@ Two harnesses, two claims: the controlled sweep says the graft map is cheaper an
 
 The [benchmarks](#benchmark) measure the mechanism. The real test is whether the graft map helps an agent **ship real changes** on code people actually run, not just answer questions. So we benchmark it on popular open-source repos: **15 tasks each**, 10 real developer questions plus **5 actual implementation tasks** (real merged pull requests, each re-implemented from its base commit and scored against the files the maintainers actually changed). Same agent (Claude Opus), same file tools; the only difference is whether the graft map is wired in.
 
-Across these repos the graft map runs **up to 4× cheaper and 3× faster**, with better or no loss of correctness: it reproduces the real merged PRs by touching the same files the maintainers did. Per-repo detail below.
+On PocketBase the graft map ran **21% cheaper and 14% faster** across the 15 tasks, and **2.6× cheaper** on the hardest cross-file question, with no loss of correctness: it reproduced the real merged PRs by touching the same files the maintainers did.
 
 ### PocketBase (Go, ~350 files)
 
@@ -423,7 +423,7 @@ Yes. Trail-code is graft's new name, and graft lives on inside it as the graft m
 You write those by hand, keep them current by hand, and your agent can skip them. Trail-code saves learnings from your conversations, brings in only the ones about the code you're working on, checks your changes against them before a PR, and adds a map of your code. It works next to your instruction files: `trail init` never touches your `CLAUDE.md`.
 
 **Will it fill up my context window?**
-No. Each prompt gets only pointers to the matching code, and the learnings that match it, and a teammate's unmerged learnings show only their first lines. In our benchmark, total tokens went down 42%.
+No. Each prompt gets only pointers to the matching code, and the learnings that match it, and a teammate's unmerged learnings show only their first lines. In our benchmark, uncached input tokens went down 42%.
 
 **Do I need an API key?**
 No. The graft map, the hooks, learnings and `trail check` all work without one. A key only adds the written summaries from `trail build --deep`.
@@ -447,7 +447,7 @@ The CLI is free and open source under the MIT license.
 
 ## How the graph gets built
 
-The graft map builds the graph in two passes, both powered by a language model:
+The graft map is built in layers. Tier 1 is tree-sitter: every symbol and call edge, no model, no key. `trail build --deep` adds two language-model passes on top:
 
 1. **Read each file.** Every source file is summarized once into a short description of what it does.
 2. **Group into nodes.** Those summaries are grouped into a curated set of nodes (subsystems, key files, and concepts) with typed links between them. The graft map chooses the right level of detail for you instead of making one node per file, so a big repo becomes a few dozen readable nodes.
@@ -461,9 +461,9 @@ flowchart LR
     P2 --> N["graft/*.md<br/>markdown node graph"]
 ```
 
-Every pass is cached by content hash, the LLM ones and the tree-sitter parse alike. Re-running only touches the files that changed, so the second build is fast and cheap (on this repo, 124 files: 0.74s cold, 0.18s after one edited file, 0.18s with nothing changed). `trail build --no-reuse` forces a cold re-parse.
+Every pass is cached by content hash, the LLM ones and the tree-sitter parse alike. Re-running only touches the files that changed, so the second build is fast and cheap (on this repo, 312 files: about 5s cold, about 0.6s after one edited file or with nothing changed). `trail build --no-reuse` forces a cold re-parse.
 
-That cheapness is what lets **every query refresh the graph before it answers**. A retrieval call stats the tree against the last build's fingerprint (~3ms), and rebuilds only if something moved, so `ask`/`grep`/`callers`/`skeleton`/`map` describe the code as it is right now, including edits that are unsaved to git: uncommitted, unstaged, or staged all look the same to the graft map. Git determines the visible file set; freshness compares the working-tree bytes rather than commit or index state. The refresh is structural and `$0`; it never calls the LLM. Turn it off per-command with `--no-refresh`, or everywhere with `GRAFT_NO_REFRESH=1`.
+That cheapness is what lets **every query refresh the graph before it answers**. A retrieval call stats the tree against the last build's fingerprint (about 50ms on this repo), and rebuilds only if something moved, so `ask`/`grep`/`callers`/`skeleton`/`map` describe the code as it is right now, including edits that are unsaved to git: uncommitted, unstaged, or staged all look the same to the graft map. Git determines the visible file set; freshness compares the working-tree bytes rather than commit or index state. The refresh is structural and `$0`; it never calls the LLM. Turn it off per-command with `--no-refresh`, or everywhere with `GRAFT_NO_REFRESH=1`.
 
 Alongside the markdown graph, `trail build` builds `graft/.graph/wiring.json` (a per-symbol code graph) plus a per-file wiring card mirroring your source tree. Tier 1 is pure tree-sitter (every function, class, and call edge; deterministic, no model, no network), which is why plain `trail build` needs no key. The `--deep` pass adds a one-line summary and a crux excerpt per symbol, cached by body hash.
 
@@ -480,20 +480,22 @@ compiler-grade layer, all `$0` and deterministic (no model, no key):
   **Kotlin**, **PHP**, **Swift** (classes, structs, enums, actors, protocols;
   extension members attach to the extended type), **R** (`.R`/`.r`: plain
   functions, S3/S4/R6 classes and methods, roxygen `@export`,
-  `library()`/`source()` imports).
+  `library()`/`source()` imports), and **Vue** single-file components (their
+  `<script>` blocks go through the TypeScript extractor).
 
 - **Broad**: symbols (functions, classes, methods, types, …) plus name-resolved
   call edges via a generic tree-sitter extractor, one grammar per language:
   **Rust, C, C++, C#, Ruby, Scala, Elixir, Solidity,
-  OCaml, Zig, Dart, Clojure, Nix, Lua**.
+  Dart, Clojure, Nix, Lua**, and **OCaml, Zig** (symbols only for now, no call edges).
 
 - **Compiler-grade edges (opt-in)**: `trail build --lsp` adds precise
   `lsp_resolved` call edges (member calls the static pass can't type) when a
-  language server is on your `PATH`: **rust-analyzer** (Rust), **clangd** (C/C++),
+  language server is on your `PATH`. It uses the first one installed, in this
+  order, one server per build: **rust-analyzer** (Rust), **clangd** (C/C++),
   **gopls** (Go), **pyright** (Python), **typescript-language-server** (TS/JS).
   It's best-effort: with no server installed the graph is unchanged.
 
-Twenty-three languages in total. A file whose language isn't listed is skipped, not
+Twenty-three languages, plus Vue single-file components. A file whose language isn't listed is skipped, not
 indexed. Adding a broad-tier language is a small contribution; see
 [CREDITS.md](CREDITS.md) for the folks who added the current set.
 
@@ -556,8 +558,8 @@ With no TTY to prompt on (CI, a Dockerfile, a piped shell), `init` writes **noth
 | `--all-agents` | write instruction files for every known agent, detected or not |
 | `--no-agents` | Claude Code wiring only; skip other agents |
 | `--list-agents` | print the known agent ids and exit |
-| `--no-mcp` | skip MCP server registration |
-| `--no-hooks` | skip hook installation |
+| `--no-mcp` | skip MCP registration for agents other than Claude Code |
+| `--no-hooks` | skip hook installation for agents other than Claude Code |
 | `--no-statusline` | skip writing Claude Code `statusLine` (same as `GRAFT_NO_STATUSLINE=1`) |
 | `--no-global` | skip writes outside this repo (the `~/.codex/` entries below) |
 
@@ -575,7 +577,7 @@ Both configs are user-level, so they apply to **every** repo you open with Codex
 
 ### MCP server
 
-`trail init` also registers the Trail-code MCP server with agents that support it, so these six tools appear natively, no shell required. Claude Code gets this too: `trail init` writes the server into the project's `.mcp.json` (restart Claude Code to load it). Skip with `--no-mcp`; run it manually with `trail mcp [dir]`.
+`trail init` also registers the Trail-code MCP server with agents that support it, so these six tools appear natively, no shell required. Claude Code gets this too: `trail init` writes the server into the project's `.mcp.json` (restart Claude Code to load it). Run it by hand with `trail mcp [dir]`.
 
 | Tool | Takes | What it's for |
 |---|---|---|
@@ -596,7 +598,7 @@ Where a CLI agent supports user-level `hooks.json`, `init` also installs the pos
 
 ### Claude Code (deep integration)
 
-`trail init` always wires up Claude Code, and Claude Code gets more than the skill file above. From then on, any Claude Code session opened in the repo gets:
+When Claude Code is selected (it is by default), it gets more than the skill file above. From then on, any Claude Code session opened in the repo gets:
 
 - **a live statusline**: the graft map's size, how many learnings the repo has, and a `⚠ N stale` warning when the code has moved ahead of the map
 - **auto-sync**: every query brings the graph up to date first, so an answer always describes the code as it is right now, uncommitted edits included. A query refreshes only what it reads; the markdown under `graft/` is refreshed by the background rebuild at the end of a turn that touched code. Both are structural and `$0`; auto-sync never calls the LLM on its own
@@ -615,7 +617,7 @@ Where a CLI agent supports user-level `hooks.json`, `init` also installs the pos
 
 ## CLI
 
-`trail --help` lists the commands in five groups. Every `graft` command still works too.
+`trail --help` lists the commands in four groups. Every `graft` command still works too.
 
 ```bash
 # find code · your agent runs these
@@ -641,7 +643,7 @@ trail map --max-dirs N               # raise/lower the number of directories sho
 #   GRAFT_NO_REFRESH=1               # same, for every command
 #   GRAFT_REFRESH=hash               # hash every file instead of trusting size+mtime
 
-# team learnings
+# team memory
 trail note --title "<about>" [dir]   # save a decision: what this session decided, tried and ruled out (the text on stdin)
 trail note --personal                # about your own setup, not the code: keep it in ~/.trail, out of the repo
 trail check [dir]                    # check your branch's diff against the repo's learnings, yours and your skills (exit 1 on a conflict)
@@ -653,7 +655,7 @@ trail init [dir]                     # pick which agents to wire (prompts on a t
 trail init --dry-run                 # list the agent wiring it would write, then exit
 trail init --agents cursor kiro      # wire only these agents, no prompt (ids: agents, adal, cursor, gemini, grok, hermes, antigravity, copilot, kiro, windsurf, claude)
 trail init --yes                     # no prompt; wire every detected agent
-trail init --no-global               # skip writes outside this repo (~/.codex/ config + hooks)
+trail init --no-global               # skip writes outside this repo (~/.claude, ~/.claude.json, ~/.codex, ~/.gemini)
 trail init --no-statusline           # skip Claude Code statusLine (same as GRAFT_NO_STATUSLINE=1)
 trail init --no-build                # wire the files only; don't build the graph
 trail init --all-agents              # wire every known agent, detected or not
@@ -662,7 +664,7 @@ trail init --list-agents             # list known agent ids and exit
 trail build [dir]                    # build the graft map in graft/: wiring graph + per-file cards (no LLM, no key)
 trail build --deep                   # add the LLM layer: concept nodes + per-symbol summary/crux (cached)
 trail build --check                  # build nothing: fail (exit 1) if graft/ has drifted from the code, for CI
-trail build --extensions .ts .py     # only include these code extensions
+trail build --deep -e .ts .py        # with --deep: only summarize these extensions
 trail build --no-reuse               # re-parse every file instead of replaying unchanged ones from cache
 trail build --follow-submodules      # include initialized submodules; persist the choice for builds + MCP refresh
 trail build --no-follow-submodules   # exclude submodules again and persist that choice (the default)
@@ -725,14 +727,14 @@ with file/symbol counts, each dir's local hubs, and the global hotspots,
 all ranked by in-degree, no LLM, no key:
 
 ```
-repo map — 113 files · 687 symbols · 2186 edges · typescript
+repo map — 313 files · 2349 symbols · 8148 edges · javascript, typescript
 
-src/                63 files · 527 symbols   hubs: contextDirFor (node-file.ts, 21←), wiringPath (write.ts, 14←), buildGraph (build.ts, 11←)
-test/               43 files · 102 symbols   hubs: edge (graph-traverse.test.ts, 4←), graphOf (graph-traverse.test.ts, 4←), fileNode (graph-map.test.ts, 3←)
-viewer/             5 files · 58 symbols   hubs: $ (main.ts, 9←), activeGraph (main.ts, 5←), cvar (data.ts, 5←)
-scripts/            2 files · 0 symbols
+src/                157 files · 1804 symbols   hubs: wiringPath (write.ts, 48←), cmd (brand.ts, 45←), buildGraph (build.ts, 39←)
+test/               144 files · 467 symbols   hubs: tmpRepo (helpers.ts, 46←), fetch (app-identity.test.ts, 7←), fakeProviders (helpers.ts, 5←)
+viewer/             5 files · 71 symbols   hubs: $ (main.ts, 9←), cvar (data.ts, 6←), activeGraph (main.ts, 5←)
+scripts/            7 files · 7 symbols   hubs: bump (graph-quality.mjs, 1←), defaultTranscriptDir (tally-audit.mjs, 1←), flush (tally-audit.mjs, 1←)
 
-hotspots: contextDirFor · function · src/context/node-file.ts:L100-L103 · 21←  wiringPath · function · src/graph/write.ts:L20-L22 · 14←  buildGraph · function · src/graph/build.ts:L104-L218 · 11←  ...
+hotspots: wiringPath · function · src/graph/write.ts:L20-L22 · 48←  tmpRepo · function · test/helpers.ts:L30-L32 · 46←  cmd · function · src/brand.ts:L63-L70 · 45←  ...
 ```
 
 ## Monorepos, submodules & multi-repo folders
@@ -779,7 +781,7 @@ without a `cd` to the repo root.
 server; the viewer ships prebuilt inside the package.
 
 <p align="center">
-  <img src="assets/graft-viz-demo.gif" alt="The graph viewer: searching a symbol and jumping to it lights up its dependency graph: amber edges are what it depends on, teal is what depends on it" width="820"/>
+  <img src="assets/graft-viz-demo.gif" alt="The graph viewer: searching a symbol and jumping to it lights up its dependency graph: amber edges are what it depends on, indigo is what depends on it" width="820"/>
   <br/><sub>search → jump to a node → dependency graph lights up</sub>
 </p>
 
@@ -799,11 +801,12 @@ answering a question someone building or reviewing code actually asks:
 | `configures` | what changes its behavior without a code change? |
 | `validates` | what checks or judges this? (tests, drift checks, scoring) |
 | `extends` / `implements` | what contract must this honor? |
+| `references` | what names this without calling it? (drawn as faint dots) |
 
 Select a node and its edges take on direction: **amber = what it depends on,
-teal = what depends on it**, with the verb written on each highlighted edge.
-Chips above the canvas filter by verb; tree-sitter-extracted edges draw solid
-while LLM-inferred ones draw dashed. The viewer live-reloads when `graft/`
+indigo = what depends on it**, with the verb written on each highlighted edge.
+Chips above the canvas filter by verb; edges the parser resolved exactly draw
+solid, while edges matched by name alone, or inferred by the model, draw dashed. The viewer live-reloads when `graft/`
 changes on disk. Older graphs with vague verbs (`influences`, `supports`) are
 normalized on load, so no regeneration is needed.
 
@@ -812,7 +815,7 @@ normalized on load, so no regeneration is needed.
 ## Development
 
 ```bash
-git clone https://github.com/trailhq/Graft.git && cd Graft
+git clone https://github.com/trailhq/Trail-Code.git && cd Trail-Code
 npm install
 npm run build
 npm test
