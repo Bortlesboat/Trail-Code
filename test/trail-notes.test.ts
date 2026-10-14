@@ -394,6 +394,19 @@ test("hooks speak trail only in a repo wired for it, on a machine with trail ins
   assert.equal(adoptRepoBrand(plain, { PATH: bin, TRAIL_INVOKED_AS: "trail" }), "trail", "a name already set is kept");
 });
 
+test("Cursor's and Codex's hooks speak trail in a repo whose only trail wiring is theirs", async () => {
+  const { adoptRepoBrand } = await import("../src/brand.js");
+  const { hostsWiredForTrail } = await import("../src/hosts/registry.js");
+  const bin = mkdtempSync(join(tmpdir(), "notes-bin-"));
+  writeFileSync(join(bin, process.platform === "win32" ? "trail.cmd" : "trail"), "");
+  const cursorOnly = tmpRepo("brand-cursor");
+  mkdirSync(join(cursorOnly, ".cursor", "rules"), { recursive: true });
+  writeFileSync(join(cursorOnly, ".cursor", "rules", "trail.mdc"), "");
+  assert.equal(adoptRepoBrand(cursorOnly, { PATH: bin }, hostsWiredForTrail), "trail");
+  assert.equal(adoptRepoBrand(cursorOnly, { PATH: bin }), "graft", "without the hosts check, only .claude counts");
+  assert.equal(adoptRepoBrand(tmpRepo("brand-none"), { PATH: bin }, hostsWiredForTrail), "graft");
+});
+
 // --- wiring under trail's names ---
 
 test("trail init moves a graft-wired repo to trail's names, and uninstall takes either set out", () => {

@@ -104,11 +104,19 @@ export function repoWiredForTrail(dir: string): boolean {
  * entry has set a name. They say trail in a repo wired for it, but only when
  * the `trail` command is installed on this machine: a hook that tells the
  * agent to run a command the machine doesn't have costs a failed tool call.
- * A name already set (by the CLI that spawned this) is kept.
+ * A name already set (by the CLI that spawned this) is kept. `wiredElsewhere`
+ * also counts a repo whose other agents' files are on trail (hosts/registry.ts's
+ * `hostsWiredForTrail`, passed in so this file stays light): Cursor's and
+ * Codex's hooks run this same entry in repos with no `.claude` at all.
  */
-export function adoptRepoBrand(repo: string, env: NodeJS.ProcessEnv = process.env): Brand {
+export function adoptRepoBrand(
+  repo: string,
+  env: NodeJS.ProcessEnv = process.env,
+  wiredElsewhere?: (repo: string) => boolean,
+): Brand {
   if (env[BRAND_ENV] !== "trail" && env[BRAND_ENV] !== "graft") {
-    setBrand(repoWiredForTrail(repo) && trailOnPath(env) ? "trail" : "graft", env);
+    const wired = repoWiredForTrail(repo) || Boolean(wiredElsewhere?.(repo));
+    setBrand(wired && trailOnPath(env) ? "trail" : "graft", env);
   }
   return brand(env);
 }

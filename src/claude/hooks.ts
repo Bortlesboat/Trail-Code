@@ -11,6 +11,7 @@ import { patchStats, readStats, acquireLock, readSession, writeSession, resolveC
 import { graftCliPath, claudeScriptPath } from './paths.js';
 import { runUpkeep } from '../upkeep-run.js';
 import { runningVersion, wiredHostIds } from '../upkeep.js';
+import { hostsWiredForTrail } from '../hosts/registry.js';
 import { flushClosedSessions, summarizeSession } from '../telemetry/sessions.js';
 import { hasSavingsTally, lastAssistantTurn, lastTurnBilling } from './tally.js';
 import { scopeOf, scopesOfGraph } from '../graph/scopes.js';
@@ -577,7 +578,7 @@ export async function main(event: string): Promise<void> {
   if (globalCopyCovers(event, process.argv[1])) return;
   const input = readStdin();
   const dir = projectDir(input);
-  adoptRepoBrand(dir);
+  adoptRepoBrand(dir, process.env, hostsWiredForTrail);
 
   if (event === 'session-start') {
     // Before anything is emitted: refresh this repo's wiring if it was written by
