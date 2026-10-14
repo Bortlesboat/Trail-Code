@@ -27,7 +27,7 @@ export const BRAND_ENV = "TRAIL_INVOKED_AS";
 
 /** The npm package each name is published as. Same code, two names. */
 export const PACKAGE_FOR: Record<Brand, string> = {
-  trail: "@trailhq/trail",
+  trail: "@trailhq/trail-code",
   graft: "@nanonets/graft",
 };
 

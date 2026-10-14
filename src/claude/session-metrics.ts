@@ -79,7 +79,7 @@ export function commandInvokesGraft(command: string): boolean {
   // running from a source checkout
   if (/dist[/\\](cli|bin[/\\](trail|graft))\.js/.test(c)) return true;
   // `graft …`, `graft-dev …`, `npx [-y] [@nanonets/]graft …`, and the same for
-  // `trail` / `@trailhq/trail`, at the start of the line or of a &&/;/| segment —
+  // `trail` / `@trailhq/trail-code`, at the start of the line or of a &&/;/| segment —
   // not "mygraft" or a path that merely contains it.
   return /(^|[|&;]\s*)(npx\s+(-y\s+)?(@nanonets\/|@trailhq\/)?)?(graft|trail)(-dev)?\b/i.test(c);
 }

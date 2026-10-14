@@ -110,7 +110,7 @@ test("no stranded line once something can answer the hooks, or the repo already 
   writeFileSync(exe, "");
   chmodSync(exe, 0o755);
   assert.equal(strandedRepoNotice({ cwd: graftEraRepo(), tty: true, env: { ...TRAIL, PATH: bin } }), null, "graft installed");
-  assert.equal(strandedRepoNotice({ cwd: graftEraRepo("const PKGS = ['@trailhq/trail', '@nanonets/graft'];"), tty: true, env: TRAIL }), null, "a shim that looks for trail");
+  assert.equal(strandedRepoNotice({ cwd: graftEraRepo("const PKGS = ['@trailhq/trail-code', '@nanonets/graft'];"), tty: true, env: TRAIL }), null, "a shim that looks for trail");
   const moved = graftEraRepo();
   writeFileSync(join(moved, ".claude", "helpers", "trail-hooks.cjs"), "");
   assert.equal(strandedRepoNotice({ cwd: moved, tty: true, env: TRAIL }), null, "already on trail");
@@ -133,7 +133,7 @@ test("the savings footer is read under either name", () => {
 
 test("a shell command running trail counts as a retrieval, like graft", () => {
   assert.equal(commandInvokesGraft('trail ask "auth" --source'), true);
-  assert.equal(commandInvokesGraft("npx -y @trailhq/trail grep foo"), true);
+  assert.equal(commandInvokesGraft("npx -y @trailhq/trail-code grep foo"), true);
   assert.equal(commandInvokesGraft("cd x && trail callers run"), true);
   assert.equal(commandInvokesGraft("node dist/bin/trail.js ask x"), true);
   assert.equal(commandInvokesGraft("graft ask x"), true);

@@ -414,7 +414,7 @@ test("trail init moves a graft-wired repo to trail's names, and uninstall takes 
     assert.match(settings, /trail-statusline\.cjs/);
     const mcp = JSON.parse(readFileSync(join(d, ".mcp.json"), "utf8"));
     assert.deepEqual(Object.keys(mcp.mcpServers), ["trail"]);
-    assert.deepEqual(mcp.mcpServers.trail, { command: "npx", args: ["-y", "@trailhq/trail", "mcp"] });
+    assert.deepEqual(mcp.mcpServers.trail, { command: "npx", args: ["-y", "@trailhq/trail-code", "mcp"] });
 
     // Running it again changes nothing.
     const again = run("trail", ["init", d, "--agents", "claude", "--yes", "--no-global"], home);
