@@ -219,3 +219,41 @@ export function strandedRepoNotice(input: { cwd: string; tty: boolean; env?: Nod
   }
   return "· this repo's agent hooks were set up by an older graft and can't find trail. run trail init here once to move the repo over";
 }
+
+const WEEK_MS = 7 * DAY_MS;
+
+export function handoverStampPath(home: string = homedir()): string {
+  return join(home, ".graft", "trail-handover.json");
+}
+
+/**
+ * The line a Claude Code session start hands the agent on a machine that has
+ * graft but not the trail command, at most once a week; or null.
+ *
+ * {@link graftNotice} reaches a person typing graft. Most people only meet
+ * graft through their agent, so the agent is the one who can tell them that
+ * `graft upgrade` adds trail. Once trail is installed, the next session moves
+ * the repo over by itself (see upkeep-run.ts), so this stops.
+ */
+export function trailHandoverLine(input: { env?: NodeJS.ProcessEnv; home?: string; now?: number } = {}): string | null {
+  const env = input.env ?? process.env;
+  if (brand(env) !== "graft" || env.CI || env.GRAFT_NO_RENAME_NOTICE || trailOnPath(env)) return null;
+  const now = input.now ?? Date.now();
+  const path = handoverStampPath(input.home);
+  try {
+    const last = (JSON.parse(readFileSync(path, "utf8")) as { shownAt?: number }).shownAt ?? 0;
+    if (now - last < WEEK_MS) return null;
+  } catch {
+    /* never shown */
+  }
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify({ shownAt: now }) + "\n");
+  } catch {
+    /* shown again next time */
+  }
+  return (
+    "· graft is now Trail-code: the same code map under the `trail` command, plus learnings the team shares in .trail/. " +
+    "Tell the user once, in a line at the end of your first reply, that `graft upgrade` adds it and graft keeps working."
+  );
+}

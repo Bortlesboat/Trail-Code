@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { brand, cmd, graftNotice, noticeStampPath, strandedRepoNotice, tag } from "../src/brand.js";
+import { brand, cmd, graftNotice, handoverStampPath, noticeStampPath, strandedRepoNotice, tag, trailHandoverLine } from "../src/brand.js";
 import { track } from "../src/telemetry/track.js";
 import { commandInvokesGraft } from "../src/claude/session-metrics.js";
 import { savingsLine, sumSavingsFooters } from "../src/context/savings.js";
@@ -309,4 +309,29 @@ test("both tool vocabularies count as retrievals", async () => {
   assert.equal(canonicalToolName("graft_ask"), "graft_find_code");
   assert.equal(isGraftMcpTool("mcp__trail__trail_trace_calls"), true);
   assert.equal(isGraftMcpTool("mcp__graft__graft_find_all"), true);
+});
+
+// --- the agent's line on a machine with graft and no trail ---
+
+test("on graft without trail, the agent is told once a week how to get trail", () => {
+  const home = scratchHome();
+  const now = Date.parse("2026-10-14T10:00:00Z");
+  const line = trailHandoverLine({ env: { PATH: "" }, home, now });
+  assert.match(line ?? "", /graft is now Trail-code/);
+  assert.match(line ?? "", /`graft upgrade` adds it and graft keeps working/);
+  assert.equal(trailHandoverLine({ env: { PATH: "" }, home, now: now + 3 * 86400_000 }), null, "not again that week");
+  assert.ok(trailHandoverLine({ env: { PATH: "" }, home, now: now + 8 * 86400_000 }), "again the next week");
+});
+
+test("no handover line once trail is installed, under trail, in CI, or opted out", () => {
+  const bin = mkdtempSync(join(tmpdir(), "graft-bin-"));
+  const exe = join(bin, process.platform === "win32" ? "trail.cmd" : "trail");
+  writeFileSync(exe, "");
+  chmodSync(exe, 0o755);
+  const home = scratchHome();
+  assert.equal(trailHandoverLine({ env: { PATH: bin }, home }), null, "trail on PATH");
+  assert.equal(trailHandoverLine({ env: { PATH: "", TRAIL_INVOKED_AS: "trail" }, home }), null, "trail");
+  assert.equal(trailHandoverLine({ env: { PATH: "", CI: "true" }, home }), null, "CI");
+  assert.equal(trailHandoverLine({ env: { PATH: "", GRAFT_NO_RENAME_NOTICE: "1" }, home }), null, "opted out");
+  assert.equal(existsSync(handoverStampPath(home)), false, "nothing stamped");
 });
