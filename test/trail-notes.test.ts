@@ -294,6 +294,8 @@ test("trail note saves a learning in .trail/learnings/ to commit, ask shows it t
     assert.match(ask.out, /\.trail\/learnings\/\d{4}-\d{2}-\d{2}-bbox/);
     assert.match(ask.out, /\[(trail|graft)\] learnings saved ≈ [\d,]+ tokens/, "what reusing it saved, for the tally");
   }
+  // Not connected to a workspace: what was searched stays unrecorded, so a later sign-in has nothing old to send.
+  assert.equal(existsSync(join(home, ".trail", "outbox.jsonl")), false, "no outbox before connecting");
 
   const st = run("trail", ["status", d], home);
   assert.equal(st.status, 0, st.err);
