@@ -133,6 +133,8 @@ Nothing breaks. The code map you know is now called the graft map, and it is one
 
 `graft` and `@nanonets/graft` run the same code as `trail`, and print what they always printed.
 
+Already have graft? `graft upgrade` adds the `trail` command next to it.
+
 Repos that graft set up move to trail on their own: once the `trail` command is installed, each one moves the first time you open Claude Code in it. To move one right away, run `trail init` in it. Commit what changes so your teammates move too.
 
 
@@ -565,15 +567,20 @@ With no TTY to prompt on (CI, a Dockerfile, a piped shell), `init` writes **noth
 
 #### Writes outside the repo
 
-Selecting the `agents` host also touches your **user-level** Codex config, when `~/.codex/` exists:
+Some agents also get **user-level** files, so the wiring follows you into worktrees and folders the repo's files don't reach:
 
-| Path | What changes |
-|---|---|
-| `~/.codex/config.toml` | registers the Trail-code MCP server |
-| `~/.codex/hooks/` | the post-edit hook shim |
-| `~/.codex/hooks.json` | a `PostToolUse` entry matching `Write\|Edit\|MultiEdit` |
+| Agent | Path | What changes |
+|---|---|---|
+| Claude Code | `~/.claude/settings.json` | `SessionStart`, `UserPromptSubmit`, `PostToolUse` and `Stop` hooks |
+| Claude Code | `~/.claude/helpers/graft-hooks.cjs` | the hooks shim they call |
+| Claude Code | `~/.claude.json` | the `trail` MCP server |
+| Codex (`agents`), when `~/.codex/` exists | `~/.codex/config.toml` | the `trail` MCP server |
+| Codex | `~/.codex/hooks.json` | the same four hook events, matching `apply_patch\|Write\|Edit\|MultiEdit` after edits |
+| Codex | `~/.codex/hooks/graft/graft-hooks.cjs` | the hooks shim |
+| Antigravity | `~/.gemini/config/mcp_config.json` | the `trail` MCP server |
+| Antigravity | `~/.gemini/skills/trail/SKILL.md` | its skill file |
 
-Both configs are user-level, so they apply to **every** repo you open with Codex, not just this one. The picker labels these `machine-wide`, `--dry-run` lists them in their own section, and `--no-global` skips them while still wiring `AGENTS.md`.
+These apply to **every** repo you open with that agent, not just this one. The picker labels them `machine-wide`, `--dry-run` lists them in their own section, and `--no-global` skips them all while still wiring the repo's own files.
 
 ### MCP server
 
@@ -594,7 +601,7 @@ The same server still answers the old `graft_*` tool names. Register it by hand 
 { "mcpServers": { "trail": { "command": "npx", "args": ["-y", "@trailhq/trail-code", "mcp"] } } }
 ```
 
-Where a CLI agent supports user-level `hooks.json`, `init` also installs the post-edit hook: blast-radius warnings and automatic `$0` graph re-sync after edits (skip with `--no-hooks`).
+Where a CLI agent supports user-level `hooks.json`, as Codex does, `init` also installs Trail-code's hooks there: session start, context with each prompt, blast radius and a `$0` graph re-sync after edits, and the end-of-turn sync (skip with `--no-hooks`).
 
 ### Claude Code (deep integration)
 
@@ -678,7 +685,7 @@ trail upgrade                        # npm install -g the latest published versi
 trail uninstall [dir]                # remove every file and config entry it wrote here (the inverse of init)
 trail uninstall -y                   # actually remove (without -y it prints what it would remove and exits)
 trail uninstall --keep-cache         # wiring only; leave graft/ and the .gitignore entry
-trail uninstall --no-global          # leave out-of-repo files alone (~/.codex, ~/.gemini)
+trail uninstall --no-global          # leave out-of-repo files alone (~/.claude, ~/.claude.json, ~/.codex, ~/.gemini)
 trail telemetry [status|enable|disable|debug]   # anonymous usage stats; debug prints exactly what would be sent
 
 # CI
