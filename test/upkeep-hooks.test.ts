@@ -122,8 +122,10 @@ test('a nudge still lands in a wired repo with no graph built yet', async () => 
 
 test('a repo graft set up, on a machine without trail, hands the agent the trail line once a week', async () => {
   const path = process.env.PATH;
-  // node and git, and no trail command
+  const ci = process.env.CI;
+  // node and git, and no trail command; and not CI, where the line stays quiet
   process.env.PATH = [dirname(process.execPath), '/usr/bin', '/bin'].join(delimiter);
+  delete process.env.CI;
   try {
     const home = homeWithCache('hook-handover-home', null);
     const first = contextOf(await runHook('session-start', wiredRepo('hook-handover'), home));
@@ -133,5 +135,6 @@ test('a repo graft set up, on a machine without trail, hands the agent the trail
     assert.doesNotMatch(again, /graft is now Trail-code/, 'once a week, not every session');
   } finally {
     process.env.PATH = path;
+    if (ci !== undefined) process.env.CI = ci;
   }
 });
