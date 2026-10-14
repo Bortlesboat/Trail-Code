@@ -11,36 +11,36 @@ Trail-code gives Claude Code, Cursor, Codex and other coding agents a map of you
 
 | | Code map (previously graft) | Learnings |
 |---|---|---|
-| **What is it?** | An index of your code that knows every function and what breaks if you change it | What you, your agents and your team have learned and decided |
+| **What is it?** | An index of your code: every function and who calls it, so your agent sees what a change can break | What you, your agents and your team have learned and decided |
 | **What does it do for your agent?** | Takes it straight to the right files | Lets it pick up where you and your team left off |
 | **Where does it come from?** | Your code, read on your machine | Your conversations, as you work |
 
-<a href="https://trendshift.io/repositories/92209?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-92209" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/92209/daily?language=TypeScript" alt="trailhq/Graft | Trendshift" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/92209?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-92209" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/92209/daily?language=TypeScript" alt="trailhq/Trail-Code | Trendshift" width="250" height="55"/></a>
 
 <p>
-  <a href="https://github.com/NanoNets/Graft"><img src="https://img.shields.io/github/stars/NanoNets/Graft?style=for-the-badge&logo=github&logoColor=white&label=Star%20on%20GitHub&color=FFC83D" /></a>
+  <a href="https://github.com/trailhq/Trail-Code"><img src="https://img.shields.io/github/stars/trailhq/Trail-Code?style=for-the-badge&logo=github&logoColor=white&label=Star%20on%20GitHub&color=FFC83D" /></a>
   <a href="https://trailhq.com/graft"><img src="https://img.shields.io/badge/website-trailhq.com/graft-E5484D?style=for-the-badge" /></a>
   <a href="https://discord.gg/zxmKweAA29"><img src="https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&logo=discord&logoColor=white" /></a>
-  <a href="https://www.npmjs.com/package/@nanonets/graft"><img src="https://img.shields.io/npm/v/%40nanonets%2Fgraft?style=for-the-badge&logo=npm&logoColor=white&label=npm" /></a>
-  <a href="https://www.npmjs.com/package/@nanonets/graft"><img src="https://img.shields.io/npm/dm/%40nanonets%2Fgraft?style=for-the-badge&logo=npm&logoColor=white&label=downloads" /></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/node/v/%40nanonets%2Fgraft?style=for-the-badge&logo=nodedotjs&logoColor=white" /></a>
+  <a href="https://www.npmjs.com/package/@trailhq/trail-code"><img src="https://img.shields.io/npm/v/%40trailhq%2Ftrail-code?style=for-the-badge&logo=npm&logoColor=white&label=npm" /></a>
+  <a href="https://www.npmjs.com/package/@trailhq/trail-code"><img src="https://img.shields.io/npm/dm/%40trailhq%2Ftrail-code?style=for-the-badge&logo=npm&logoColor=white&label=downloads" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/node/v/%40trailhq%2Ftrail-code?style=for-the-badge&logo=nodedotjs&logoColor=white" /></a>
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
   <img src="https://img.shields.io/badge/License-MIT-20C997?style=for-the-badge" />
   <a href="TELEMETRY.md"><img src="https://img.shields.io/badge/telemetry-anonymous%2C%20opt--out-546FFF?style=for-the-badge" /></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/NanoNets/Graft"><img src="https://img.shields.io/ossf-scorecard/github.com/NanoNets/Graft?style=for-the-badge&label=openssf%20scorecard" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/trailhq/Trail-Code"><img src="https://img.shields.io/ossf-scorecard/github.com/trailhq/Trail-Code?style=for-the-badge&label=openssf%20scorecard" /></a>
 </p>
 
 ### Up to **4× cheaper** and **3× faster**, with better or no loss of correctness.
 
-| Metric | Cold Claude Code | Claude Code with the graft map |
+| | Cold Claude Code | Claude Code with the graft map |
 |---|---|---|
-| Tool-call reduction | Baseline | **+46%** |
-| Token savings | Baseline | **+42%** |
-| Time savings | Baseline | **+60%** |
-| Correctness | 54% | **66% (+12 pts)** |
+| Tool calls, 162 runs | baseline | **46% fewer** |
+| Tokens, 162 runs | baseline | **42% fewer** |
+| Time, 162 runs | baseline | **60% less** |
+| SWE-bench Verified, 50 real issues | 27 solved (54%) | **33 solved (66%)** |
 
 ```bash
-npm install -g @trailhq/trail && trail init
+npm install -g @trailhq/trail-code && trail init
 ```
 
 </div>
@@ -51,7 +51,7 @@ npm install -g @trailhq/trail && trail init
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/trail-code-how-it-works-dark.webp">
-    <img src="assets/trail-code-how-it-works.webp" alt="Without Trail: each task starts a new session with an agent that has no memory. It searches blind, opens the wrong files, guesses how the code is wired, ships the task, and the context is lost. This repeats for every task and every teammate's agent. With Trail, your agent already knows your code: trail init builds the graft map, a hook points the agent to it before each session, the agent reads the graph with its impact radius, gets precise context, ships the task, then saves learnings and updates skills. One graph, every agent, up to 4x tokens saved." width="880"/>
+    <img src="assets/trail-code-how-it-works.webp" alt="Without Trail: each task starts a new session with an agent that has no memory. It searches blind, opens the wrong files, guesses how the code is wired, ships the task, and the context is lost. This repeats for every task and every teammate's agent. With Trail, your agent already knows your code: trail init builds the graft map, a hook points the agent to it before each session, the agent reads the graph with its impact radius, gets precise context, ships the task, then saves learnings. One graph, every agent, up to 4x tokens saved." width="880"/>
   </picture>
 </p>
 
@@ -93,7 +93,7 @@ npm install -g @trailhq/trail && trail init
 
 Trail-code has two parts. Both run on your machine.
 
-1. **The graft map: your code.** `trail init` parses your repo with tree-sitter into a map of every file, function and who calls what. No model, no API key. It refreshes itself when the code changes, uncommitted edits included. Your agent gets the matching code with each prompt, and sees what depends on a file right after it edits it.
+1. **The graft map: your code.** `trail init` parses your repo with tree-sitter into a map of every file, function and who calls what. No model, no API key. It refreshes itself when the code changes, uncommitted edits included. Your agent gets pointers to the matching files and functions with each prompt, and sees what depends on a file right after it edits it.
 2. **Learnings: what you, your agents and your team know.** When a session works something out, or you correct how something is done, your agent saves it as a learning. The next session on that code, yours or a teammate's, starts from it instead of digging again. Learnings about the code are committed with the code; learnings about you stay on your machine. On day one, `trail init` starts you off with what you told Claude more than once in your past sessions.
 
 The graft map tells your agent *where* things are. Learnings tell it *why* they are that way, and *how* the work gets done here.
@@ -103,7 +103,7 @@ The graft map tells your agent *where* things are. Learnings tell it *why* they 
 ## Quick start
 
 ```bash
-npm install -g @trailhq/trail   # install the CLI, once
+npm install -g @trailhq/trail-code   # install the CLI, once
 trail init                      # in your repo: build the graft map, set up .trail/, wire your agents
 ```
 
@@ -112,12 +112,12 @@ That is the whole setup. `trail init` asks which of your coding agents to wire u
 Commit the setup so your teammates get it too. The graft map itself, in `graft/`, is a local cache like `node_modules` and is added to `.gitignore`, so it stays out of the commit:
 
 ```bash
-git add .claude .mcp.json .trail && git commit -m "set up Trail-code"
+git add .claude .mcp.json .trail .gitignore .ignore && git commit -m "set up Trail-code"
 ```
 
-Teammates' agents read the learnings in `.trail/` even before they install anything, and tell them once how to get the rest.
+Teammates' Claude Code reads the learnings in `.trail/` even before they install anything, and tells them once how to get the rest.
 
-`trail init --dry-run` shows every file it would touch; `trail init --agents claude` wires Claude Code alone. Prefer not to install globally? `npx @trailhq/trail init` works the same way.
+`trail init --dry-run` shows the agent wiring it would write; `trail init --agents claude` wires Claude Code alone.
 
 ### Coming from graft?
 
@@ -128,23 +128,13 @@ Nothing breaks. The code map you know is now called the graft map, and it is one
 | Name | graft | Trail-code |
 | The code map | graft | the graft map (same thing) |
 | Command | `graft` | `trail` (`graft` still works) |
-| Package | `@nanonets/graft` | `@trailhq/trail` (the old one still works) |
+| Package | `@nanonets/graft` | `@trailhq/trail-code` (the old one still works) |
 | Learnings | None | New, see [Part 2](#part-2-learnings) |
 
 `graft` and `@nanonets/graft` run the same code as `trail`, and print what they always printed.
 
-Repos that graft set up move to trail on their own: once `trail init` has run on your machine, each one moves the first time you open Claude Code in it. To move one right away, run `trail init` in it. Commit what changes so your teammates move too.
+Repos that graft set up move to trail on their own: once the `trail` command is installed, each one moves the first time you open Claude Code in it. To move one right away, run `trail init` in it. Commit what changes so your teammates move too.
 
-<details>
-<summary><b>Trying it before <code>@trailhq/trail</code> is on npm</b></summary>
-
-```bash
-git clone https://github.com/trailhq/Trail-Code.git trail && cd trail
-npm install && npm run build && node scripts/pack-trail.mjs
-npm install -g ./build/trail
-```
-
-</details>
 
 ---
 
@@ -156,7 +146,7 @@ The graft map builds that understanding once, and keeps it current:
 
 - **Every file, function and caller.** Parsed with tree-sitter into a graph of symbols and who calls what. Deterministic, no model, no network, 23 languages.
 - **The right code with every prompt.** In Claude Code, hooks add the matching files and functions to each prompt, and show what depends on a file right after your agent edits it (the "blast radius"). Cursor, Codex and other agents get the same map through MCP tools and their instruction files.
-- **Always fresh.** Every query checks the working tree first (about 3 ms when nothing moved) and rebuilds only what changed, so answers describe the code as it is right now, uncommitted edits included.
+- **Always fresh.** Every query checks the working tree first (a few tens of milliseconds when nothing moved) and rebuilds only what changed, so answers describe the code as it is right now, uncommitted edits included.
 - **Plain files you can read.** Linked markdown nodes your agent opens and greps like any other file. No embeddings, no index to keep warm.
 - **Summaries if you want them.** `trail build --deep` adds plain-English summaries of each part of the system, written by the model provider you choose, under your own key.
 
@@ -251,6 +241,7 @@ A decision is a short markdown file in `.trail/learnings/`, reviewed in the pull
 title: Keep the default retry count at 4
 author: Anirudh
 date: 2026-10-09
+cost: { tokens: 27400 }
 touches:
   - client.go
 ---
@@ -285,7 +276,7 @@ Your agent saves and uses learnings on its own, at these moments:
 - **After real digging, a decision.** When a turn took real work and nothing was saved yet, Claude Code is asked once a session to save a learning: what was decided, what was ruled out, what to watch out for. A summary, never a transcript, and nothing secret.
 - **After a correction, a learning.** When you correct how something is done here, or state a rule for it, your agent saves that too, so nobody has to say it again.
 - **Before each task, the learnings on it.** Each session starts with the learnings that apply to all work in the repo. Each prompt brings in the ones earlier sessions left on that code, above the code itself. A teammate's learning says whose it is.
-- **Before a PR, the check.** Your agent runs `trail check` before it commits, pushes or opens a pull request.
+- **Before a PR, the check.** Your agent is told to run `trail check` before it commits, pushes or opens a pull request.
 - **Never rewrites history.** Your agent never edits an existing learning. When it goes against one, it says why in the commit and saves a new one.
 
 The commands, if you want them:
@@ -318,7 +309,7 @@ Coming soon: a Trail workspace, for your team's view across repos. A team page w
 - **Your code.** The graft map is built on your machine with tree-sitter. No model, no network. The optional `trail build --deep` summaries go to the model provider you choose, under your own key.
 - **Personal learnings.** Kept in `~/.trail`. Never committed, never uploaded.
 - **Repo learnings.** Files in your repo, shared through git like any other file.
-- **Your past sessions.** `trail init` reads your own messages from Claude Code's transcripts for the repo, on your machine. Your own Claude Code does the reading, so your messages go only to the model you first sent them to, and it counts toward your Claude usage. None of it goes to Trail.
+- **Your past sessions.** `trail init` reads your own messages from Claude Code's transcripts for the repo, on your machine. Your own Claude Code does the reading, with Claude Sonnet under your login, so your messages go only to Anthropic, and it counts toward your Claude usage. None of it goes to Trail.
 - **If you connect a Trail workspace.** No learning goes to Trail until you do. Once connected, the learnings in the repos you picked go to Trail, including those on teammates' pushed branches. So does a record of each search and check that used them: the search text, the files, and whose learnings were shown. That is how the team page counts reuse.
 - **Anonymous usage stats.** Buckets and fixed labels only, never the title, text or paths of a learning. [`TELEMETRY.md`](TELEMETRY.md) lists every field. Turn it off with `trail telemetry disable` or `DO_NOT_TRACK=1`.
 
@@ -426,13 +417,13 @@ Two clones of PocketBase at the same commit: one wired with `graft init`, one un
 ## FAQ
 
 **Is this graft?**
-Yes. Trail-code is graft's new name, and graft lives on inside it as the graft map. The command is `trail` and the package is `@trailhq/trail`; `graft` and `@nanonets/graft` run the same code, print what they always printed, and keep working.
+Yes. Trail-code is graft's new name, and graft lives on inside it as the graft map. The command is `trail` and the package is `@trailhq/trail-code`; `graft` and `@nanonets/graft` run the same code, print what they always printed, and keep working.
 
 **How is this different from CLAUDE.md or AGENTS.md?**
 You write those by hand, keep them current by hand, and your agent can skip them. Trail-code saves learnings from your conversations, brings in only the ones about the code you're working on, checks your changes against them before a PR, and adds a map of your code. It works next to your instruction files: `trail init` never touches your `CLAUDE.md`.
 
 **Will it fill up my context window?**
-No. Each prompt gets only the code and the learnings that match it, and a teammate's unmerged learnings show only their first lines. In our benchmark, total tokens went down 42%.
+No. Each prompt gets only pointers to the matching code, and the learnings that match it, and a teammate's unmerged learnings show only their first lines. In our benchmark, total tokens went down 42%.
 
 **Do I need an API key?**
 No. The graft map, the hooks, learnings and `trail check` all work without one. A key only adds the written summaries from `trail build --deep`.
@@ -546,7 +537,7 @@ Settings keep their `GRAFT_` names. See [`.env.example`](.env.example) for the f
 One command wires Trail-code into the coding agents you use:
 
 ```bash
-npx @trailhq/trail init
+npm install -g @trailhq/trail-code && trail init
 # detects your agents and writes each one's native instruction file;
 # Claude Code additionally gets the live statusline + hooks below
 ```
@@ -559,9 +550,9 @@ With no TTY to prompt on (CI, a Dockerfile, a piped shell), `init` writes **noth
 
 | Flag | Effect |
 |---|---|
-| `--agents <ids...>` | wire only these, no prompt; ids: `agents`, `cursor`, `gemini`, `grok`, `copilot`, `kiro`, `windsurf`, `adal`, `claude` |
+| `--agents <ids...>` | wire only these, no prompt; ids: `agents`, `adal`, `cursor`, `gemini`, `grok`, `hermes`, `antigravity`, `copilot`, `kiro`, `windsurf`, `claude` |
 | `--yes`, `-y` | skip the prompt and wire every **detected** agent |
-| `--dry-run` | print every file `init` would touch, then exit without writing |
+| `--dry-run` | print the agent wiring `init` would write, then exit without writing |
 | `--all-agents` | write instruction files for every known agent, detected or not |
 | `--no-agents` | Claude Code wiring only; skip other agents |
 | `--list-agents` | print the known agent ids and exit |
@@ -598,7 +589,7 @@ Both configs are user-level, so they apply to **every** repo you open with Codex
 The same server still answers the old `graft_*` tool names. Register it by hand if your agent needs it explicit:
 
 ```json
-{ "mcpServers": { "trail": { "command": "npx", "args": ["-y", "@trailhq/trail", "mcp"] } } }
+{ "mcpServers": { "trail": { "command": "npx", "args": ["-y", "@trailhq/trail-code", "mcp"] } } }
 ```
 
 Where a CLI agent supports user-level `hooks.json`, `init` also installs the post-edit hook: blast-radius warnings and automatic `$0` graph re-sync after edits (skip with `--no-hooks`).
@@ -659,7 +650,7 @@ trail team [dir]                     # what the team learned this week, who's wo
 
 # setup
 trail init [dir]                     # pick which agents to wire (prompts on a terminal; writes nothing until you choose)
-trail init --dry-run                 # list every file it would touch, then exit
+trail init --dry-run                 # list the agent wiring it would write, then exit
 trail init --agents cursor kiro      # wire only these agents, no prompt (ids: agents, adal, cursor, gemini, grok, hermes, antigravity, copilot, kiro, windsurf, claude)
 trail init --yes                     # no prompt; wire every detected agent
 trail init --no-global               # skip writes outside this repo (~/.codex/ config + hooks)
